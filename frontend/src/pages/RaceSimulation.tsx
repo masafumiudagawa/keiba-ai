@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { SimulationResponse, HorseRaceData } from '../types'
+import type { SimulationResponse } from '../types'
 
-const GATE_COLORS = ['#fff','#000','#e74c3c','#3498db','#f1c40f','#2ecc71','#e67e22','#e91e63']
+const GATE_COLORS = ['#ffffff','#111111','#dc2626','#2563eb','#eab308','#16a34a','#ea580c','#db2777']
 
 export default function RaceSimulation() {
   const [data, setData] = useState<SimulationResponse | null>(null)
@@ -12,6 +12,7 @@ export default function RaceSimulation() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
   const startTimeRef = useRef(0)
+  const progressRef = useRef(0)
 
   const runSimulation = async () => {
     setLoading(true)
@@ -19,235 +20,234 @@ export default function RaceSimulation() {
       const res = await fetch('/api/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_simulations: 1000, track_condition: '良' }),
+        body: JSON.stringify({ num_simulations: 500, track_condition: '良' }),
       })
-      const json = await res.json()
-      setData(json)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setData(await res.json())
+      progressRef.current = 0
       setProgress(0)
       setPlaying(false)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+    } catch (e) {
+      console.error('Simulation error:', e)
+      alert('シミュレーション実行に失敗しました')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const drawTrack = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, horses: HorseRaceData[], prog: number) => {
-    ctx.clearRect(0, 0, w, h)
-    const cx = w * 0.45, cy = h * 0.5
-    const rx = w * 0.35, ry = h * 0.35
+  const draw = useCallback((prog: number) => {
+    const canvas = canvasRef.current
+    if (!canvas || !data) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
 
-    // Draw grass
-    ctx.fillStyle = '#2d8a4e'
+    const w = canvas.width, h = canvas.height
+    const horses = data.representative_race.horses
+
+    ctx.fillStyle = '#1e6b3a'
     ctx.fillRect(0, 0, w, h)
 
-    // Outer track
-    ctx.strokeStyle = '#3da363'
-    ctx.lineWidth = 50
+    const cx = w * 0.5, cy = h * 0.48
+    const rx = w * 0.38, ry = h * 0.34
+
+    // Track
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, rx + 25, ry + 25, 0, 0, Math.PI * 2)
+    ctx.fillStyle = '#2d8a4e'
+    ctx.fill()
+
     ctx.beginPath()
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
-    ctx.stroke()
-
-    // Track surface
     ctx.strokeStyle = '#c4a35a'
-    ctx.lineWidth = 40
-    ctx.beginPath()
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+    ctx.lineWidth = 44
     ctx.stroke()
 
-    // Inner rail
     ctx.strokeStyle = '#fff'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 1.5
     ctx.beginPath()
-    ctx.ellipse(cx, cy, rx - 22, ry - 22, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx, cy, rx - 23, ry - 23, 0, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, rx + 23, ry + 23, 0, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Outer rail
     ctx.beginPath()
-    ctx.ellipse(cx, cy, rx + 22, ry + 22, 0, 0, Math.PI * 2)
-    ctx.stroke()
+    ctx.ellipse(cx, cy, rx - 24, ry - 24, 0, 0, Math.PI * 2)
+    ctx.fillStyle = '#1a5c30'
+    ctx.fill()
 
-    const goalAngle = Math.PI * 0.75
-    const gx = cx + rx * Math.cos(goalAngle)
-    const gy = cy + ry * Math.sin(goalAngle)
-    ctx.fillStyle = '#fff'
-    ctx.font = 'bold 12px sans-serif'
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'alphabetic'
-    ctx.fillText('GOAL', gx - 15, gy + 35)
+    const goalAngle = Math.PI * 0.8
+    const fs = Math.max(9, w * 0.014)
 
-    ctx.fillStyle = 'rgba(255,255,255,0.6)'
-    ctx.font = '10px sans-serif'
+    // Distance markers
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
+    ctx.font = `${fs}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
     for (let d = 400; d <= 2000; d += 400) {
-      const ratio = d / 2200
-      const angle = goalAngle + Math.PI * 2 * ratio
-      const mx = cx + (rx + 30) * Math.cos(angle)
-      const my = cy + (ry + 30) * Math.sin(angle)
-      ctx.fillText(`${2200 - d}m`, mx - 10, my)
+      const a = goalAngle + (Math.PI * 2) * (d / 2200)
+      ctx.fillText(`${2200 - d}m`, cx + (rx + 35) * Math.cos(a), cy + (ry + 35) * Math.sin(a))
     }
+    ctx.fillStyle = '#fff'
+    ctx.font = `bold ${Math.max(11, w * 0.016)}px sans-serif`
+    ctx.fillText('GOAL', cx + (rx + 35) * Math.cos(goalAngle), cy + (ry + 35) * Math.sin(goalAngle))
 
-    const topN = horses.slice(0, 14)
-    topN.forEach((horse, i) => {
-      const checkpoints = horse.positions.length
-      const cpIdx = Math.min(Math.floor(prog * (checkpoints - 1)), checkpoints - 2)
-      const cpFrac = (prog * (checkpoints - 1)) - cpIdx
-      const gap1 = horse.positions[cpIdx] || 0
-      const gap2 = horse.positions[cpIdx + 1] || 0
-      const gap = gap1 + (gap2 - gap1) * cpFrac
-      const gapOffset = gap * 0.01
-      const angle = goalAngle + Math.PI * 2 * prog - gapOffset
-      const lane = (i % 4) * 6
-      const hrx = rx + lane - 10
-      const hry = ry + lane - 10
-      const hx = cx + hrx * Math.cos(angle)
-      const hy = cy + hry * Math.sin(angle)
+    // Horses
+    const dotR = Math.max(10, Math.min(16, w * 0.022))
+    horses.forEach((horse, i) => {
+      const nCp = horse.positions.length
+      const cpFloat = prog * (nCp - 1)
+      const cpIdx = Math.min(Math.floor(cpFloat), nCp - 2)
+      const cpFrac = cpFloat - cpIdx
+      const relPos = horse.positions[cpIdx] + (horse.positions[cpIdx + 1] - horse.positions[cpIdx]) * cpFrac
 
-      const gateColor = GATE_COLORS[Math.floor(((horse.gate_number || i + 1) - 1) / 2)] || '#999'
+      const lagAngle = relPos * 0.15
+      const angle = goalAngle + (Math.PI * 2) * prog - lagAngle
+      const lane = ((i % 5) - 2) * 5
+      const hx = cx + (rx + lane) * Math.cos(angle)
+      const hy = cy + (ry + lane) * Math.sin(angle)
+
+      const gateIdx = Math.floor(((horse.gate_number || i + 1) - 1) / 2)
+      const color = GATE_COLORS[gateIdx] || '#999'
+
       ctx.beginPath()
-      ctx.arc(hx, hy, 14, 0, Math.PI * 2)
-      ctx.fillStyle = gateColor
+      ctx.arc(hx + 1, hy + 1, dotR, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      ctx.fill()
+
+      ctx.beginPath()
+      ctx.arc(hx, hy, dotR, 0, Math.PI * 2)
+      ctx.fillStyle = color
       ctx.fill()
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = 2
       ctx.stroke()
 
-      ctx.fillStyle = gateColor === '#000' || gateColor === '#e74c3c' ? '#fff' : '#000'
-      ctx.font = 'bold 11px sans-serif'
+      const textColor = ['#111111','#dc2626','#2563eb','#db2777'].includes(color) ? '#fff' : '#000'
+      ctx.fillStyle = textColor
+      ctx.font = `bold ${Math.max(8, Math.min(12, w * 0.016))}px sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(String(horse.gate_number || i + 1), hx, hy)
     })
 
+    // HUD
     const remaining = Math.max(0, Math.round(2200 * (1 - prog)))
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'
+    const hudW = Math.max(120, w * 0.18)
+    ctx.fillRect(8, 8, hudW, 28)
     ctx.fillStyle = '#fff'
-    ctx.font = 'bold 20px sans-serif'
+    ctx.font = `bold ${Math.max(13, w * 0.02)}px sans-serif`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-    ctx.fillText(`残り ${remaining}m`, 20, 20)
-    ctx.font = '14px sans-serif'
-    ctx.fillStyle = '#ddd'
-    ctx.fillText(`${speed}x`, 20, 48)
-  }, [speed])
+    ctx.fillText(`残り ${remaining}m  ${speed}x`, 14, 13)
+  }, [data, speed])
 
   useEffect(() => {
-    if (!playing || !data || !canvasRef.current) return
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    if (!playing || !data) return
     const duration = 15000 / speed
-    startTimeRef.current = performance.now() - progress * duration
+    startTimeRef.current = performance.now() - progressRef.current * duration
     const animate = (now: number) => {
-      const elapsed = now - startTimeRef.current
-      const prog = Math.min(elapsed / duration, 1)
-      setProgress(prog)
-      drawTrack(ctx, canvas.width, canvas.height, data.representative_race.horses, prog)
-      if (prog < 1) animRef.current = requestAnimationFrame(animate)
+      const p = Math.min((now - startTimeRef.current) / duration, 1)
+      progressRef.current = p
+      setProgress(p)
+      draw(p)
+      if (p < 1) animRef.current = requestAnimationFrame(animate)
       else setPlaying(false)
     }
     animRef.current = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(animRef.current)
-  }, [playing, data, speed, drawTrack, progress])
+  }, [playing, data, speed, draw])
 
   useEffect(() => {
-    if (!data || !canvasRef.current) return
-    const ctx = canvasRef.current.getContext('2d')
-    if (ctx) drawTrack(ctx, canvasRef.current.width, canvasRef.current.height, data.representative_race.horses, progress)
-  }, [data, drawTrack, progress])
+    if (data && !playing) draw(progressRef.current)
+  }, [data, playing, draw])
+
+  useEffect(() => {
+    const resize = () => {
+      const canvas = canvasRef.current
+      if (!canvas?.parentElement) return
+      const w = canvas.parentElement.clientWidth - 24
+      canvas.width = w
+      canvas.height = Math.min(w * 0.6, 420)
+      if (data) draw(progressRef.current)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [data, draw])
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <button onClick={runSimulation} disabled={loading}
-          className="bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 text-white px-6 py-2 rounded-lg font-medium">
-          {loading ? 'シミュレーション中...' : 'シミュレーション実行 (1000回)'}
+          className="bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 text-white px-4 py-2 rounded-lg font-medium text-sm">
+          {loading ? '計算中...' : 'シミュレーション実行'}
         </button>
+        {data && <>
+          <button onClick={() => { if (!playing) startTimeRef.current = performance.now() - progressRef.current * (15000/speed); setPlaying(!playing) }}
+            className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded text-sm">
+            {playing ? '⏸' : '▶'}
+          </button>
+          <button onClick={() => { progressRef.current = 0; setProgress(0); setPlaying(false); draw(0) }}
+            className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded text-sm">⏮</button>
+          {[1, 2, 4].map(s => (
+            <button key={s} onClick={() => setSpeed(s)}
+              className={`px-2.5 py-1.5 rounded text-xs font-medium ${speed === s ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+              {s}x
+            </button>
+          ))}
+        </>}
       </div>
 
-      {data && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-            <canvas ref={canvasRef} width={700} height={450} className="w-full rounded-lg" />
-            <div className="flex items-center gap-3 mt-4">
-              <button onClick={() => setPlaying(!playing)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded text-sm font-medium border border-slate-300">
-                {playing ? '⏸ 一時停止' : '▶ 再生'}
-              </button>
-              <button onClick={() => { setProgress(0); setPlaying(false) }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded text-sm font-medium border border-slate-300">
-                ⏮ 最初から
-              </button>
-              {[1, 2, 4].map((s) => (
-                <button key={s} onClick={() => setSpeed(s)}
-                  className={`px-3 py-1 rounded text-sm font-medium border ${speed === s ? 'bg-blue-700 text-white border-rose-600' : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'}`}>
-                  {s}x
-                </button>
-              ))}
-              <div className="flex-1 bg-slate-200 rounded-full h-2 cursor-pointer"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setProgress((e.clientX - rect.left) / rect.width)
-                  setPlaying(false)
-                }}>
-                <div className="bg-blue-600 h-2 rounded-full transition-none" style={{ width: `${progress * 100}%` }} />
-              </div>
+      {data ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 bg-white rounded-xl shadow border border-slate-200 p-3">
+            <canvas ref={canvasRef} className="w-full rounded-lg" />
+            <div className="mt-2 bg-slate-200 rounded-full h-2 cursor-pointer"
+              onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const p = Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); progressRef.current=p; setProgress(p); setPlaying(false); draw(p) }}>
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${progress * 100}%` }} />
             </div>
           </div>
-
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-500 mb-3">着順 (シミュレーション結果)</h3>
-              <div className="space-y-1">
+          <div className="space-y-3">
+            <div className="bg-white rounded-xl p-3 shadow border border-slate-200">
+              <h3 className="text-xs font-semibold text-slate-500 mb-2">着順結果</h3>
+              <div className="space-y-0.5 max-h-64 overflow-y-auto">
                 {data.representative_race.horses.map((h, i) => (
-                  <div key={h.horse_name} className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${i < 3 ? 'bg-blue-50' : ''}`}>
-                    <span className={`w-6 font-bold ${i === 0 ? 'text-red-600' : i < 3 ? 'text-blue-600' : 'text-slate-400'}`}>
-                      {h.finish_position}
-                    </span>
-                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border border-slate-300"
-                      style={{ backgroundColor: h.color, color: h.color === '#000000' || h.color === '#e74c3c' ? '#fff' : '#000' }}>
-                      {h.gate_number}
-                    </span>
-                    <span className="flex-1 truncate text-slate-800">{h.horse_name}</span>
-                    <span className="text-slate-400 font-mono text-xs">{h.finish_time}</span>
+                  <div key={h.horse_name} className={`flex items-center gap-1.5 text-xs py-0.5 px-1 rounded ${i < 3 ? 'bg-blue-50' : ''}`}>
+                    <span className={`w-4 font-bold text-right ${i === 0 ? 'text-red-600' : i < 3 ? 'text-blue-600' : 'text-slate-400'}`}>{h.finish_position}</span>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border border-slate-300 shrink-0"
+                      style={{ backgroundColor: h.color, color: ['#111111','#dc2626','#2563eb','#db2777'].includes(h.color) ? '#fff' : '#000' }}>{h.gate_number}</span>
+                    <span className="flex-1 truncate text-slate-700">{h.horse_name}</span>
+                    <span className="text-slate-400 font-mono text-[9px]">{h.finish_time}</span>
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-500 mb-3">
-                1着回数 / {data.summary.num_simulations}回
-              </h3>
-              {Object.entries(data.summary.win_counts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 8)
-                .map(([name, count]) => (
-                  <div key={name} className="flex items-center gap-2 text-sm py-1">
-                    <span className="w-28 truncate text-slate-700">{name}</span>
-                    <div className="flex-1 bg-slate-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${(count / data.summary.num_simulations) * 400}%` }} />
-                    </div>
-                    <span className="w-16 text-right font-mono text-xs text-slate-500">{count}回 ({((count / data.summary.num_simulations) * 100).toFixed(1)}%)</span>
+            <div className="bg-white rounded-xl p-3 shadow border border-slate-200">
+              <h3 className="text-xs font-semibold text-slate-500 mb-1">1着回数 / {data.summary.num_simulations}回</h3>
+              {Object.entries(data.summary.win_counts).sort((a,b) => b[1]-a[1]).slice(0,6).map(([name, count]) => (
+                <div key={name} className="flex items-center gap-1.5 text-xs py-0.5">
+                  <span className="w-20 truncate text-slate-600">{name}</span>
+                  <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${Math.min((count/data.summary.num_simulations)*300, 100)}%` }} />
                   </div>
-                ))}
-            </div>
-
-            <div className="bg-white rounded-xl p-4 text-sm shadow-sm border border-slate-200">
-              <h3 className="text-slate-500 font-semibold mb-2">ペース</h3>
-              <div className="flex gap-4 text-slate-700">
-                <div>前半1000m: <span className="font-mono font-bold">{data.representative_race.pace.first_1000m}秒</span></div>
-                <div>上がり3F: <span className="font-mono font-bold">{data.representative_race.pace.last_600m}秒</span></div>
-                <div className={`font-bold ${data.representative_race.pace.type === 'H' ? 'text-red-600' : data.representative_race.pace.type === 'S' ? 'text-blue-600' : 'text-emerald-600'}`}>
-                  {data.representative_race.pace.type === 'H' ? 'ハイペース' : data.representative_race.pace.type === 'S' ? 'スローペース' : 'ミドル'}
+                  <span className="w-10 text-right font-mono text-[9px] text-slate-500">{((count/data.summary.num_simulations)*100).toFixed(1)}%</span>
                 </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-xl p-3 shadow border border-slate-200 text-xs text-slate-600">
+              <div className="flex flex-wrap gap-x-3">
+                <span>前半1000m: <b className="font-mono">{data.representative_race.pace.first_1000m}秒</b></span>
+                <span>上がり3F: <b className="font-mono">{data.representative_race.pace.last_600m}秒</b></span>
+                <span className={`font-bold ${data.representative_race.pace.type === 'H' ? 'text-red-600' : data.representative_race.pace.type === 'S' ? 'text-blue-600' : 'text-emerald-600'}`}>
+                  {data.representative_race.pace.type === 'H' ? 'ハイ' : data.representative_race.pace.type === 'S' ? 'スロー' : 'ミドル'}ペース
+                </span>
               </div>
             </div>
           </div>
         </div>
-      )}
-
-      {!data && !loading && (
-        <div className="text-center py-20 text-slate-400">
-          「シミュレーション実行」ボタンを押してレース展開を生成してください
-        </div>
-      )}
+      ) : !loading && <div className="text-center py-16 text-slate-400 text-sm">「シミュレーション実行」を押してレース展開を生成</div>}
     </div>
   )
 }

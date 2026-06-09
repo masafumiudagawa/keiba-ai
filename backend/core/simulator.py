@@ -163,23 +163,39 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
     rep_times = all_finish_times[representative_idx]
 
     # 代表レースのデータ構築
-    leader_times = np.min(rep_positions, axis=0)
+    # 各馬の進行度を0〜1の範囲で表現（アニメーション用）
+    # rep_positions[hi, cp] = 累積タイム → これを最遅タイムで正規化して順位感を出す
+    leader_times = np.min(rep_positions, axis=0)  # 各CPでの先頭タイム
+    slowest_times = np.max(rep_positions, axis=0)  # 各CPでの最後方タイム
+
     horse_results = []
     for hi in range(n_horses):
         hp = horse_params[hi]
-        # 先頭からの差（秒）
-        gaps = rep_positions[hi] - leader_times
+
+        # 先頭からの差（秒）→ 各CPで
+        gaps_sec = rep_positions[hi] - leader_times
+        # 差を相対位置に変換: 0=先頭, 1=最後方
+        spread = slowest_times - leader_times
+        relative_positions = []
+        for cp in range(n_checkpoints):
+            if spread[cp] > 0:
+                relative_positions.append(round(float(gaps_sec[cp] / spread[cp]), 3))
+            else:
+                relative_positions.append(0.0)
+
         section_times = []
         for cp in range(1, n_checkpoints):
-            section_times.append(round(rep_positions[hi, cp] - rep_positions[hi, cp - 1], 1))
+            st = float(rep_positions[hi, cp] - rep_positions[hi, cp - 1])
+            section_times.append(round(st, 1))
 
         gate = hp["gate"] if hp["gate"] > 0 else hi + 1
         horse_results.append({
-            "gate_number": gate,
+            "gate_number": int(gate),
             "horse_name": hp["name"],
             "color": GATE_COLORS.get((gate - 1) // 2 + 1, "#999999"),
             "style": hp["style"],
-            "positions": [round(float(g), 2) for g in gaps],
+            "positions": relative_positions,
+            "gaps_sec": [round(float(g), 2) for g in gaps_sec],
             "section_times": section_times,
             "finish_time": f"{int(rep_times[hi] // 60)}:{rep_times[hi] % 60:04.1f}",
             "finish_position": int(rep_finish[hi]),
@@ -190,7 +206,7 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
     # ペース算出
     leader_sections = []
     for cp in range(1, n_checkpoints):
-        leader_sections.append(leader_times[cp] - leader_times[cp - 1])
+        leader_sections.append(float(leader_times[cp] - leader_times[cp - 1]))
     first_1000m = sum(leader_sections[:5])
     last_600m = sum(leader_sections[-3:])
 

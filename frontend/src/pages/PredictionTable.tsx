@@ -57,22 +57,22 @@ export default function PredictionTable() {
 
       {/* Table */}
       <div className="overflow-x-auto bg-white rounded-xl shadow border border-slate-200">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs sm:text-sm">
           <thead>
             <tr className="bg-slate-700 text-white">
               {([
-                ['rank', '順位'],
+                ['rank', '#'],
                 ['mark', '印'],
-                ['gate_number', '馬番'],
+                ['gate_number', '番'],
                 ['horse_name', '馬名'],
                 ['jockey', '騎手'],
                 ['win_probability', '勝率'],
-                ['place_probability', '複勝率'],
-                ['ai_score', 'AI指数'],
+                ['place_probability', '複勝'],
+                ['ai_score', 'AI'],
               ] as [keyof Prediction, string][]).map(([key, label]) => (
                 <th
                   key={key}
-                  className="px-3 py-3 text-left cursor-pointer hover:text-blue-200 select-none font-medium text-sm"
+                  className="px-1.5 sm:px-3 py-2 sm:py-3 text-left cursor-pointer hover:text-blue-200 select-none font-medium whitespace-nowrap"
                   onClick={() => handleSort(key)}
                 >
                   {label} {sortKey === key && (sortAsc ? '↑' : '↓')}
@@ -90,14 +90,14 @@ export default function PredictionTable() {
                     p.rank <= 3 ? 'bg-blue-50/60' : ''
                   }`}
                 >
-                  <td className="px-3 py-3 font-bold text-slate-700">{p.rank}</td>
-                  <td className={`px-3 py-3 text-xl ${MARK_COLORS[p.mark] || ''}`}>{p.mark}</td>
-                  <td className="px-3 py-3 text-center text-slate-600">{p.gate_number ?? '-'}</td>
+                  <td className="px-1.5 sm:px-3 py-2 sm:py-3 font-bold text-slate-700">{p.rank}</td>
+                  <td className={`px-1.5 sm:px-3 py-2 sm:py-3 text-base sm:text-xl ${MARK_COLORS[p.mark] || ''}`}>{p.mark}</td>
+                  <td className="px-1.5 sm:px-3 py-2 sm:py-3 text-center text-slate-600">{p.gate_number ?? '-'}</td>
                   <td className={`px-3 py-3 font-semibold ${p.rank === 1 ? 'text-red-600' : p.rank <= 3 ? 'text-blue-700' : 'text-slate-800'}`}>
                     {p.horse_name}
                     {p.sex && p.age && <span className="text-slate-400 text-xs ml-2">{p.sex}{p.age}</span>}
                   </td>
-                  <td className="px-3 py-3 text-slate-600">{p.jockey ?? '-'}</td>
+                  <td className="px-1.5 sm:px-3 py-2 sm:py-3 text-slate-600 hidden sm:table-cell">{p.jockey ?? '-'}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-24 bg-slate-200 rounded-full h-2">
@@ -109,7 +109,7 @@ export default function PredictionTable() {
                       <span className="font-mono font-bold text-slate-800 text-xs w-12">{(p.win_probability * 100).toFixed(1)}%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-1.5 sm:px-3 py-2 sm:py-3 hidden sm:table-cell">
                     <span className="font-mono text-slate-600">{(p.place_probability * 100).toFixed(1)}%</span>
                   </td>
                   <td className="px-3 py-3">

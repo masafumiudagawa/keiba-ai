@@ -102,20 +102,20 @@ export default function BettingOptimizer() {
         {result ? (
           <div className="space-y-4">
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-slate-200">
-                <div className="text-slate-500 text-sm">合計投資</div>
-                <div className="text-2xl font-bold font-mono text-slate-800">{result.total_budget.toLocaleString()}円</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="bg-white rounded-xl p-2 sm:p-4 text-center shadow-sm border border-slate-200">
+                <div className="text-slate-500 text-xs sm:text-sm">合計投資</div>
+                <div className="text-base sm:text-2xl font-bold font-mono text-slate-800">{result.total_budget.toLocaleString()}円</div>
               </div>
-              <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-slate-200">
-                <div className="text-slate-500 text-sm">期待回収</div>
-                <div className={`text-2xl font-bold font-mono ${result.expected_return > result.total_budget ? 'text-emerald-600' : 'text-red-600'}`}>
+              <div className="bg-white rounded-xl p-2 sm:p-4 text-center shadow-sm border border-slate-200">
+                <div className="text-slate-500 text-xs sm:text-sm">期待回収</div>
+                <div className={`text-base sm:text-2xl font-bold font-mono ${result.expected_return > result.total_budget ? 'text-emerald-600' : 'text-red-600'}`}>
                   {result.expected_return.toLocaleString()}円
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-slate-200">
-                <div className="text-slate-500 text-sm">期待回収率</div>
-                <div className={`text-2xl font-bold font-mono ${result.expected_roi >= 1 ? 'text-emerald-600' : 'text-red-600'}`}>
+              <div className="bg-white rounded-xl p-2 sm:p-4 text-center shadow-sm border border-slate-200">
+                <div className="text-slate-500 text-xs sm:text-sm">回収率</div>
+                <div className={`text-base sm:text-2xl font-bold font-mono ${result.expected_roi >= 1 ? 'text-emerald-600' : 'text-red-600'}`}>
                   {(result.expected_roi * 100).toFixed(1)}%
                 </div>
               </div>
