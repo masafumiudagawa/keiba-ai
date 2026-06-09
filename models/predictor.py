@@ -262,11 +262,18 @@ class TakarazukaPredictor:
         if "career_place_rate" in fm.columns:
             scores += fm["career_place_rate"] * 10
 
-        # 8. 騎手力
-        if "jockey_win_rate" in fm.columns:
-            scores += fm["jockey_win_rate"] * 50
+        # 8. 騎手力（G1実績を重視 + シーズン勝率も加味）
+        #    武豊(G1:79,勝率14%) > 北村友(G1:6,勝率13%)
+        #    ルメール(G1:48,勝率20%) > レーン(G1:22,勝率19%)
         if "jockey_g1_wins" in fm.columns:
-            scores += fm["jockey_g1_wins"].clip(0, 30) * 0.5
+            # G1勝利数をログスケールで評価（0→0, 6→8, 22→14, 48→18, 79→20）
+            import numpy as _np
+            g1 = fm["jockey_g1_wins"].clip(0, 100)
+            scores += _np.log1p(g1) * 4.5
+        if "jockey_win_rate" in fm.columns:
+            scores += fm["jockey_win_rate"] * 25
+        if "jockey_place_rate" in fm.columns:
+            scores += fm["jockey_place_rate"] * 10
 
         # 9. 宝塚記念経験
         if "has_takarazuka_experience" in fm.columns:
