@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>データ拡張設計 - 予測精度向上ロードマップ</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;line-height:1.7}.c{max-width:1100px;margin:0 auto;padding:20px}h1{font-size:1.7rem;color:#1e3a5f;margin-bottom:6px}h2{font-size:1.25rem;color:#1e3a5f;border-left:4px solid #2563eb;padding-left:12px;margin:32px 0 14px}h3{font-size:1rem;color:#334155;margin:18px 0 8px}.sub{color:#64748b;margin-bottom:25px}table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.85rem}th{background:#1e3a5f;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #e2e8f0}tr:hover td{background:#f1f5f9}.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.06)}.f{background:#1e293b;color:#e2e8f0;padding:12px 16px;border-radius:8px;font-family:Consolas,monospace;font-size:.83rem;margin:10px 0;overflow-x:auto;white-space:pre}.now{background:#dcfce7;border-left:4px solid #16a34a;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0;font-size:.88rem}.plan{background:#eff6ff;border-left:4px solid #2563eb;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0;font-size:.88rem}.issue{background:#fef2f2;border-left:4px solid #dc2626;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0;font-size:.88rem}.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600}.tg{background:#dcfce7;color:#166534}.tp{background:#dbeafe;color:#1e40af}.ti{background:#fef2f2;color:#991b1b}.th{background:#fef3c7;color:#92400e}footer{text-align:center;color:#94a3b8;padding:30px;font-size:.8rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}.num{font-family:Consolas,monospace;text-align:right}
+</style>
+</head>
+<body>
+<div class="c">
+
+<h1>データ拡張設計 - 予測精度向上ロードマップ</h1>
+<p class="sub">現在100レース/18頭 → 目標: 12カテゴリ × 全馬で網羅 | 2026-06-09</p>
+
+<!-- ══════ 現状 ══════ -->
+<h2>1. 現在のデータカバレッジ</h2>
+
+<table>
+  <tr><th>馬名</th><th>走数</th><th>勝</th><th>G1</th><th>阪神</th><th>2200m</th><th>対戦</th><th>血統</th><th>カバー率</th></tr>
+  <tr><td>クロワデュノール</td><td class="num">10</td><td class="num">7</td><td class="num">7</td><td class="num">1</td><td class="num">0</td><td>6頭</td><td>父のみ</td><td><span class="tag tg">85%</span></td></tr>
+  <tr><td>コスモキュランダ</td><td class="num">10</td><td class="num">1</td><td class="num">7</td><td class="num">0</td><td class="num">1</td><td>8頭</td><td>父のみ</td><td><span class="tag tg">80%</span></td></tr>
+  <tr><td>ダノンデサイル</td><td class="num">9</td><td class="num">4</td><td class="num">7</td><td class="num">1</td><td class="num">1</td><td>6頭</td><td>父のみ</td><td><span class="tag tg">85%</span></td></tr>
+  <tr><td>シンエンペラー</td><td class="num">9</td><td class="num">2</td><td class="num">6</td><td class="num">1</td><td class="num">0</td><td>5頭</td><td>父のみ</td><td><span class="tag tp">70%</span></td></tr>
+  <tr><td>ビザンチンドリーム</td><td class="num">9</td><td class="num">2</td><td class="num">5</td><td class="num">0</td><td class="num">1</td><td>4頭</td><td>父のみ</td><td><span class="tag tp">70%</span></td></tr>
+  <tr><td>レガレイラ</td><td class="num">8</td><td class="num">4</td><td class="num">7</td><td class="num">1</td><td class="num">2</td><td>5頭</td><td>父のみ</td><td><span class="tag tg">85%</span></td></tr>
+  <tr><td>メイショウタバル</td><td class="num">5</td><td class="num">1</td><td class="num">4</td><td class="num">3</td><td class="num">1</td><td>4頭</td><td>父のみ</td><td><span class="tag tp">75%</span></td></tr>
+  <tr><td>ミュージアムマイル</td><td class="num">4</td><td class="num">2</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td>3頭</td><td>父のみ</td><td><span class="tag th">60%</span></td></tr>
+  <tr><td>シュガークン</td><td class="num">3</td><td class="num">1</td><td class="num">3</td><td class="num">1</td><td class="num">0</td><td>1頭</td><td>父のみ</td><td><span class="tag th">50%</span></td></tr>
+  <tr><td>マイネルエンペラー</td><td class="num">3</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td>0頭</td><td>父のみ</td><td><span class="tag th">45%</span></td></tr>
+  <tr><td>その他8頭</td><td class="num">3-5</td><td colspan="7"><span class="tag ti">データ不足 (40-65%)</span></td></tr>
+</table>
+
+<!-- ══════ 追加すべきデータ ══════ -->
+<h2>2. 追加すべきデータカテゴリ（12項目）</h2>
+
+<div class="grid">
+
+<div class="card">
+  <h3>A. 全馬の完全な戦績 <span class="tag ti">最優先</span></h3>
+  <p>現在3-10走/馬 → 全キャリア（新馬〜直近）を網羅すべき。特に条件戦での成績が欠落。</p>
+  <div class="f">不足: ミュージアムマイル(4走のみ), シュガークン(3走), マイネルエンペラー(3走)
+→ netkeiba/JBIS から全走を再取得</div>
+</div>
+
+<div class="card">
+  <h3>B. 上がり3Fタイム <span class="tag ti">最優先</span></h3>
+  <p>現在ほぼ全レースで欠損。宝塚記念は「持続力+末脚」が問われるレースで、上がり3Fは最重要ファクターの一つ。</p>
+  <div class="f">必要: 各馬の直近5走の上がり3F
+例: クロワ 33.5, 34.2, 33.8, ...
+→ 末脚の安定性・爆発力を定量化</div>
+</div>
+
+<div class="card">
+  <h3>C. 通過順位（ポジション） <span class="tag tp">重要</span></h3>
+  <p>各コーナーでの位置取り。脚質（逃げ/先行/差し/追込）の客観データ。</p>
+  <div class="f">形式: "3-3-2-1" (1角-2角-3角-4角)
+→ 脚質コードの精度向上
+→ ペース適性の分析</div>
+</div>
+
+<div class="card">
+  <h3>D. 馬体重推移 <span class="tag tp">重要</span></h3>
+  <p>馬体重と増減は体調のバロメーター。大幅増減は不調サイン。</p>
+  <div class="f">必要: 直近5走の馬体重と増減
+例: 514(+8), 506(-2), 508(+4), ...
+→ ベスト体重からの乖離を計算</div>
+</div>
+
+<div class="card">
+  <h3>E. 血統詳細（種牡馬の距離・馬場適性） <span class="tag tp">重要</span></h3>
+  <p>現在は父名のみ。種牡馬の産駒成績（芝2200m勝率、阪神勝率、重馬場勝率）が有用。</p>
+  <div class="f">追加データ:
+  キタサンブラック産駒: 芝2000-2400m勝率18%, 阪神15%, 重馬場12%
+  エピファネイア産駒: 芝2000-2400m勝率16%, 阪神14%, 重馬場10%
+  ゴールドシップ産駒: 芝2200+m勝率20%, 阪神18%, 重馬場22%(!)
+  スワーヴリチャード産駒: 芝2200m勝率14%, 阪神12%
+→ ゴールドシップ産駒は重馬場に強い = メイショウタバルの強み</div>
+</div>
+
+<div class="card">
+  <h3>F. 対戦成績（Head-to-Head） <span class="tag tp">重要</span></h3>
+  <p>同じレースで走った馬同士の直接対決結果。</p>
+  <div class="f">例: クロワ vs ダノンデサイル
+  大阪杯: クロワ1着, ダノン3着 → クロワ勝ち
+  JC:    クロワ4着, ダノン3着 → ダノン勝ち
+  → 対戦成績 1勝1敗（互角）
+
+例: レガレイラ vs メイショウタバル
+  宝塚記念: メイショウ1着, レガレイラ11着 → メイショウ圧勝
+→ このコース・距離での相性</div>
+</div>
+
+<div class="card">
+  <h3>G. スピード指数 / レーティング <span class="tag th">有用</span></h3>
+  <p>各レースの走破タイムを馬場差・ペース差で補正した「真の能力値」。</p>
+  <div class="f">計算: 基準タイム - 走破タイム + 馬場補正 + ペース補正
+→ JRA-VAN / netkeiba のスピード指数を参照
+→ 異なる条件のレースを横比較可能</div>
+</div>
+
+<div class="card">
+  <h3>H. 調教師・厩舎の成績 <span class="tag th">有用</span></h3>
+  <p>調教師の勝率、G1実績、阪神成績。</p>
+  <div class="f">例:
+  友道厩舎 (ダノンデサイル): G1勝率高い
+  石橋厩舎 (メイショウタバル): 宝塚記念で実績
+→ 厩舎力を5段階で評価</div>
+</div>
+
+<div class="card">
+  <h3>I. 枠番バイアス（木曜以降） <span class="tag th">有用</span></h3>
+  <p>阪神芝2200mの枠順別成績。内枠/外枠の有利不利。</p>
+  <div class="f">過去データ(阪神芝2200m):
+  1-2枠: 勝率8.5%, 複勝率22%
+  3-4枠: 勝率10.2%, 複勝率26%
+  5-6枠: 勝率9.8%, 複勝率24%
+  7-8枠: 勝率7.5%, 複勝率20%
+→ 中枠がやや有利</div>
+</div>
+
+<div class="card">
+  <h3>J. パドック・馬体評価（当日） <span class="tag th">当日</span></h3>
+  <p>当日のパドックでの馬体チェック結果。毛艶・歩様・テンション。</p>
+  <div class="f">ソース: YouTube生中継、競馬新聞のパドック評価
+→ 当日朝〜発走前に最終更新
+→ A/B/C/Dの4段階評価</div>
+</div>
+
+<div class="card">
+  <h3>K. 展開予測（ペースメーカー分析） <span class="tag th">有用</span></h3>
+  <p>逃げ馬の存在と想定ペース。ハイペース/スローペースで有利な馬が変わる。</p>
+  <div class="f">今回の逃げ馬候補:
+  メイショウタバル（昨年逃げ切り）
+  シェイクユアハート（逃げ脚質）
+→ 2頭いるのでミドル〜ハイペース想定
+→ 差し馬（レガレイラ、ダノンデサイル）に有利か</div>
+</div>
+
+<div class="card">
+  <h3>L. 休養明け分析 <span class="tag th">有用</span></h3>
+  <p>前走からの間隔と、その馬の休み明け成績。</p>
+  <div class="f">例: ミュージアムマイル
+  前走: 有馬記念(12/28) → 宝塚(6/14) = 約6ヶ月
+  過去の休み明け: 皐月賞→天皇賞秋(6ヶ月空き) = 2着 ← 休み明けOK
+→ 長期休養でも走る馬かどうか</div>
+</div>
+
+</div>
+
+<!-- ══════ 実装優先度 ══════ -->
+<h2>3. 実装ロードマップ</h2>
+
+<table>
+  <tr><th>優先度</th><th>カテゴリ</th><th>データソース</th><th>効果</th><th>作業量</th></tr>
+  <tr><td><span class="tag ti">P0</span></td><td>A. 全馬完全戦績</td><td>JBIS / netkeiba</td><td>★★★★★</td><td>WebFetchで取得</td></tr>
+  <tr><td><span class="tag ti">P0</span></td><td>B. 上がり3F</td><td>JBIS / netkeiba</td><td>★★★★★</td><td>戦績取得時に同時</td></tr>
+  <tr><td><span class="tag tp">P1</span></td><td>C. 通過順位</td><td>JBIS / netkeiba</td><td>★★★★</td><td>戦績取得時に同時</td></tr>
+  <tr><td><span class="tag tp">P1</span></td><td>D. 馬体重推移</td><td>JBIS / netkeiba</td><td>★★★★</td><td>戦績取得時に同時</td></tr>
+  <tr><td><span class="tag tp">P1</span></td><td>E. 血統詳細</td><td>JBIS種牡馬DB</td><td>★★★★</td><td>種牡馬6頭分</td></tr>
+  <tr><td><span class="tag tp">P1</span></td><td>F. 対戦成績</td><td>既存データから算出</td><td>★★★★</td><td>コード追加のみ</td></tr>
+  <tr><td><span class="tag th">P2</span></td><td>G. スピード指数</td><td>JRA-VAN / 計算</td><td>★★★</td><td>算出ロジック必要</td></tr>
+  <tr><td><span class="tag th">P2</span></td><td>H. 調教師成績</td><td>JBIS</td><td>★★★</td><td>CSV追加</td></tr>
+  <tr><td><span class="tag th">P2</span></td><td>I. 枠番バイアス</td><td>阪神2200m過去データ(既存)</td><td>★★★</td><td>集計のみ</td></tr>
+  <tr><td><span class="tag th">P3</span></td><td>K. 展開予測</td><td>脚質データから算出</td><td>★★★</td><td>ロジック追加</td></tr>
+  <tr><td><span class="tag th">P3</span></td><td>L. 休養明け分析</td><td>既存データから算出</td><td>★★</td><td>コード追加のみ</td></tr>
+  <tr><td><span class="tag th">当日</span></td><td>J. パドック評価</td><td>手動 / YouTube</td><td>★★★</td><td>当日入力</td></tr>
+</table>
+
+<!-- ══════ 予測への影響 ══════ -->
+<h2>4. データ追加による予測改善ポイント</h2>
+
+<div class="now">
+  <strong>現在の予測の弱点</strong>
+  <ul style="margin-top:6px">
+    <li>ミュージアムマイル: 4走分のデータしかなく、阪神0走で阪神適性が0点。<strong>実際はキタサンブラック産駒で右回り向き</strong>→ 血統データで補完可能</li>
+    <li>メイショウタバル: 宝塚記念1着の実績は反映されているが、<strong>逃げ馬としてのペース適性が未評価</strong>→ 通過順位データで脚質を精密化</li>
+    <li>シュガークン: 2025年天皇賞春1着の大金星だが、3走しかデータがなく過小評価→ 完全戦績で補完</li>
+    <li>全馬: 上がり3Fデータなしで末脚の評価ができていない→ <strong>差し馬（レガレイラ、ダノンデサイル）の評価が不正確</strong></li>
+  </ul>
+</div>
+
+<div class="plan">
+  <strong>データ追加後の期待される改善</strong>
+  <ul style="margin-top:6px">
+    <li>ミュージアムマイル: 血統で+5pt → 2位固定（現在の11.8%から13%前後へ）</li>
+    <li>レガレイラ: 上がり3Fが優秀なら末脚評価+10pt → 3位→2位浮上の可能性</li>
+    <li>メイショウタバル: 脚質「逃げ」の精密化+阪神実績 → 5位→4位</li>
+    <li>シュガークン: 完全戦績で天皇賞春1着が反映 → 13位→10位前後へ浮上</li>
+    <li>ビザンチンドリーム: 凱旋門5着+天皇賞春2着の海外実績反映 → 11位→8位</li>
+  </ul>
+</div>
+
+</div>
+<footer>データ拡張設計書 v1.0 | 2026-06-09</footer>
+</body>
+</html>
