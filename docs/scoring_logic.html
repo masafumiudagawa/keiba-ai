@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>競馬予想AI - スコアリングロジック詳細</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif; background: #f8fafc; color: #1e293b; line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.8rem; color: #1e3a5f; margin-bottom: 8px; }
+  h2 { font-size: 1.3rem; color: #1e3a5f; border-left: 4px solid #2563eb; padding-left: 12px; margin: 30px 0 15px; }
+  h3 { font-size: 1.05rem; color: #334155; margin: 20px 0 8px; }
+  .subtitle { color: #64748b; margin-bottom: 30px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85rem; }
+  th { background: #1e3a5f; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+  tr:hover td { background: #f1f5f9; }
+  .num { font-family: 'Consolas', monospace; text-align: right; }
+  .hi { background: #fef2f2; font-weight: 700; }
+  .formula { background: #1e293b; color: #e2e8f0; padding: 14px 18px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.85rem; margin: 10px 0; overflow-x: auto; white-space: pre; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .warn { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9rem; }
+  .ok { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9rem; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .tag-data { background: #dbeafe; color: #1d4ed8; }
+  .tag-logic { background: #fce7f3; color: #be185d; }
+  .tag-weight { background: #ecfccb; color: #4d7c0f; }
+  .bar { height: 12px; border-radius: 6px; display: inline-block; }
+  .flex-cols { display: flex; gap: 16px; flex-wrap: wrap; }
+  .flex-cols > div { flex: 1; min-width: 280px; }
+  footer { text-align: center; color: #94a3b8; padding: 30px; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>競馬予想AI - スコアリングロジック詳細</h1>
+<p class="subtitle">宝塚記念 2026 | 最終更新: 2026-06-09 | 全18頭 × 15カテゴリ × 53特徴量</p>
+
+<!-- ════════════════ 概要 ════════════════ -->
+<h2>1. 予測エンジン概要</h2>
+<div class="card">
+  <p>予測は<strong>ルールベーススコアリング</strong>と<strong>LightGBM機械学習</strong>の2段構成。<br>
+  枠番未確定時はルールベースのみ、確定後はアンサンブル（LightGBM 40% + ルールベース 60%）。</p>
+  <div class="formula">最終スコア = Σ(各カテゴリのスコア) → 正規化して確率に変換
+
+確率 = (score - min) / (max - min) → ソフトマックス正規化</div>
+</div>
+
+<!-- ════════════════ データソース ════════════════ -->
+<h2>2. データソース（7系統）</h2>
+<table>
+  <tr><th>ソース</th><th>件数</th><th>使用する特徴量</th><th>ステータス</th></tr>
+  <tr><td>各馬の過去成績</td><td>48レース/13頭</td><td>勝率, G1実績, 距離適性, 阪神実績, 近走着順</td><td><span class="tag tag-data">取得済</span></td></tr>
+  <tr><td>騎手成績</td><td>16名</td><td>勝率, G1勝利数, 阪神勝率</td><td><span class="tag tag-data">取得済</span></td></tr>
+  <tr><td>宝塚記念過去結果</td><td>91行/6年分</td><td>年齢別勝率, 出走経験</td><td><span class="tag tag-data">取得済</span></td></tr>
+  <tr><td>YouTube予想</td><td>18馬分</td><td>本命指名数, 言及率, スコア</td><td><span class="tag tag-data">取得済</span></td></tr>
+  <tr><td>ニュース予想</td><td>18馬分</td><td>本命指名数, 言及率, スコア</td><td><span class="tag tag-data">取得済</span></td></tr>
+  <tr><td>調教データ</td><td>18件</td><td>追い切り評価（1-5）</td><td><span class="tag tag-data">取得済</span></td></tr>
+  <tr><td>天気予報</td><td>1件</td><td>馬場状態予測</td><td><span class="tag tag-data">取得済</span></td></tr>
+</table>
+
+<!-- ════════════════ スコア計算式 ════════════════ -->
+<h2>3. スコアリング計算式（15カテゴリ）</h2>
+
+<h3>カテゴリ1: 馬齢 <span class="tag tag-weight">max 25pt</span></h3>
+<div class="card">
+  <p>宝塚記念は4-5歳が過去10年で勝利の90%以上を占める。6歳以上は大幅減点。</p>
+  <div class="formula">score = {4歳: 20, 5歳: 25, 6歳: 8, 7歳: 3, 8歳: 2}</div>
+  <div class="warn">クロワデュノール(4歳)=20pt, メイショウタバル(5歳)=25pt, マイネルエンペラー(6歳)=8pt</div>
+</div>
+
+<h3>カテゴリ2: 直近成績 <span class="tag tag-weight">max ~40pt</span></h3>
+<div class="card">
+  <div class="formula">前走スコア  = (18 - 着順) × 1.5  ← max 25.5pt (1着時)
+2走前スコア = (18 - 着順) × 0.8  ← max 13.6pt
+3走前スコア = (18 - 着順) × 0.5  ← max 8.5pt</div>
+  <div class="warn">問題点: 前走データがない馬は着順=18扱い→0ptになる。データ不足の馬は不利。</div>
+</div>
+
+<h3>カテゴリ3: G1・重賞実績 <span class="tag tag-weight">max ~55pt</span></h3>
+<div class="card">
+  <div class="formula">G1勝利スコア   = ln(1 + G1勝利数) × 15    ← 対数で差を圧縮
+G1複勝スコア   = G1複勝回数 × 5
+重賞勝率スコア  = 重賞勝率 × 20</div>
+  <p>例: クロワデュノール G1:4勝 → ln(5)×15 = <strong>24.1pt</strong> + 複勝6回×5 = 30pt = 計54.1pt</p>
+  <p>例: メイショウタバル G1:1勝 → ln(2)×15 = <strong>10.4pt</strong> + 複勝1回×5 = 5pt = 計15.4pt</p>
+</div>
+
+<h3>カテゴリ4: 距離適性（2000-2400m） <span class="tag tag-weight">max ~25pt</span></h3>
+<div class="card">
+  <div class="formula">距離勝率スコア = 2000-2400m勝率 × 15
+距離複勝スコア = 2000-2400m複勝率 × 10</div>
+  <div class="ok">クロワデュノール: 2000-2400m 6走5勝 → 勝率83% × 15 = 12.5pt</div>
+  <div class="warn">データ2走以下の馬は信頼度が低い（シェイクユアハート: 鳴尾記念1走だけで勝率100%→15pt）</div>
+</div>
+
+<h3>カテゴリ5: 阪神適性 <span class="tag tag-weight">max ~18pt</span></h3>
+<div class="card">
+  <div class="formula">阪神勝率スコア = 阪神勝率 × 10
+阪神複勝スコア = 阪神複勝率 × 8</div>
+  <div class="warn">問題点: 阪神での出走が1回のみの馬が多く（クロワデュノール: 大阪杯1走のみ→勝率100%=10pt）、サンプル数が少なすぎて信頼度が低い</div>
+</div>
+
+<h3>カテゴリ6: 芝・右回り適性 <span class="tag tag-weight">max ~13pt</span></h3>
+<div class="card">
+  <div class="formula">芝勝率スコア  = 芝勝率 × 8
+右回り勝率   = 右回り勝率 × 5</div>
+</div>
+
+<h3>カテゴリ7: 通算成績 <span class="tag tag-weight">max ~25pt</span></h3>
+<div class="card">
+  <div class="formula">通算勝率スコア = 通算勝率 × 15
+通算複勝率    = 通算複勝率 × 10</div>
+</div>
+
+<h3>カテゴリ8: 騎手力 <span class="tag tag-weight">max ~25pt</span></h3>
+<div class="card">
+  <div class="formula">G1実績スコア   = ln(1 + G1勝利数) × 4.5  ← 対数スケール
+シーズン勝率   = 2026年勝率 × 25
+シーズン複勝率  = 2026年複勝率 × 10</div>
+  <table>
+    <tr><th>騎手</th><th>G1勝利</th><th>G1スコア</th><th>勝率</th><th>勝率スコア</th><th>合計</th></tr>
+    <tr class="hi"><td>武豊</td><td>79勝</td><td class="num">19.7</td><td>14.0%</td><td class="num">3.5</td><td class="num"><strong>26.6</strong></td></tr>
+    <tr class="hi"><td>C.ルメール</td><td>48勝</td><td class="num">17.5</td><td>20.2%</td><td class="num">5.1</td><td class="num"><strong>26.8</strong></td></tr>
+    <tr><td>D.レーン</td><td>22勝</td><td class="num">14.1</td><td>19.6%</td><td class="num">4.9</td><td class="num"><strong>23.0</strong></td></tr>
+    <tr><td>横山典弘</td><td>33勝</td><td class="num">15.9</td><td>10.0%</td><td class="num">2.5</td><td class="num"><strong>21.1</strong></td></tr>
+    <tr><td>川田将雅</td><td>35勝</td><td class="num">16.1</td><td>17.1%</td><td class="num">4.3</td><td class="num"><strong>24.2</strong></td></tr>
+    <tr><td>戸崎圭太</td><td>25勝</td><td class="num">14.7</td><td>14.5%</td><td class="num">3.6</td><td class="num"><strong>21.9</strong></td></tr>
+    <tr><td>北村友一</td><td>6勝</td><td class="num">8.8</td><td>13.3%</td><td class="num">3.3</td><td class="num"><strong>15.2</strong></td></tr>
+    <tr><td>高杉吏麻</td><td>0勝</td><td class="num">0.0</td><td>5.6%</td><td class="num">1.4</td><td class="num"><strong>3.2</strong></td></tr>
+  </table>
+  <div class="ok">武豊: G1=79勝がログスケールで19.7pt、ルメール: G1=48勝で17.5pt → 適切な差</div>
+</div>
+
+<h3>カテゴリ9: 宝塚記念経験 <span class="tag tag-weight">max 5pt</span></h3>
+<div class="card">
+  <div class="formula">経験ボーナス = 出走経験あり × 5</div>
+  <p>メイショウタバル(昨年1着), レガレイラ(昨年11着) → 各5pt</p>
+</div>
+
+<h3>カテゴリ10-11: 上がり3F・前走間隔 <span class="tag tag-weight">各 max ~10pt</span></h3>
+<div class="card">
+  <div class="formula">上がり3F = (40 - last3F) × 2     ← 33秒→14pt, 36秒→8pt
+前走間隔 = 14-56日以内なら +5pt  ← 中2-8週が理想</div>
+</div>
+
+<h3>カテゴリ12-13: YouTube / ニュース予想 <span class="tag tag-weight">各 max ~90pt</span></h3>
+<div class="card">
+  <div class="formula">YouTubeスコア = yt_score × 2
+ニューススコア = news_score × 2</div>
+  <div class="warn"><strong>要検討</strong>: 現在のウェイトだとニュース=89pt（クロワ）がG1実績54ptの1.6倍。世論の影響が強すぎる可能性。</div>
+</div>
+
+<h3>カテゴリ14-15: オッズ・調教 <span class="tag tag-weight">各 max ~10pt</span></h3>
+<div class="card">
+  <div class="formula">オッズ   = (1/オッズ) × 30   ← 人気馬ほど加点（オッズ未取得時は0）
+調教評価  = (評価 - 3) × 5     ← 基準3、最高5→+10pt、最低1→-10pt</div>
+</div>
+
+<!-- ════════════════ 全馬スコア表 ════════════════ -->
+<h2>4. 全18頭 スコア内訳一覧</h2>
+<div style="overflow-x:auto">
+<table>
+  <tr>
+    <th>馬名</th><th>馬齢</th><th>前走</th><th>2走前</th><th>G1勝</th><th>G1複</th>
+    <th>距離</th><th>阪神</th><th>通算</th><th>騎手G1</th><th>騎手率</th>
+    <th>YT</th><th>News</th><th>調教</th><th style="background:#dc2626">合計</th>
+  </tr>
+  <tr class="hi"><td><strong>クロワデュノール</strong></td><td class="num">20</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">24.1</td><td class="num">25</td><td class="num">7.5</td><td class="num">10.0</td><td class="num">10.0</td><td class="num">8.8</td><td class="num">3.3</td><td class="num">70</td><td class="num">89</td><td class="num">5.0</td><td class="num"><strong>311.8</strong></td></tr>
+  <tr class="hi"><td><strong>ミュージアムマイル</strong></td><td class="num">20</td><td class="num">25.5</td><td class="num">12.8</td><td class="num">16.5</td><td class="num">15</td><td class="num">5.0</td><td class="num">0.0</td><td class="num">7.5</td><td class="num">14.1</td><td class="num">4.9</td><td class="num">40</td><td class="num">72</td><td class="num">5.0</td><td class="num"><strong>238.3</strong></td></tr>
+  <tr class="hi"><td><strong>メイショウタバル</strong></td><td class="num">25</td><td class="num">21.0</td><td class="num">12.8</td><td class="num">10.4</td><td class="num">10</td><td class="num">3.8</td><td class="num">3.3</td><td class="num">3.0</td><td class="num">19.7</td><td class="num">3.5</td><td class="num">44</td><td class="num">68</td><td class="num">7.5</td><td class="num"><strong>232.0</strong></td></tr>
+  <tr class="hi"><td><strong>レガレイラ</strong></td><td class="num">25</td><td class="num">21.0</td><td class="num">13.6</td><td class="num">20.8</td><td class="num">15</td><td class="num">7.5</td><td class="num">0.0</td><td class="num">7.5</td><td class="num">17.5</td><td class="num">5.1</td><td class="num">33</td><td class="num">53</td><td class="num">5.0</td><td class="num"><strong>224.0</strong></td></tr>
+  <tr class="hi"><td><strong>ダノンデサイル</strong></td><td class="num">25</td><td class="num">22.5</td><td class="num">12.0</td><td class="num">16.5</td><td class="num">30</td><td class="num">9.0</td><td class="num">0.0</td><td class="num">6.7</td><td class="num">14.7</td><td class="num">3.6</td><td class="num">27</td><td class="num">46</td><td class="num">7.5</td><td class="num"><strong>220.4</strong></td></tr>
+  <tr><td>マイユニバース</td><td class="num">20</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">15.0</td><td class="num">0.0</td><td class="num">15.0</td><td class="num">15.9</td><td class="num">2.5</td><td class="num">8</td><td class="num">10</td><td class="num">5.0</td><td class="num">130.5</td></tr>
+  <tr><td>タガノデュード</td><td class="num">25</td><td class="num">18.0</td><td class="num">11.2</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">1.4</td><td class="num">20</td><td class="num">28</td><td class="num">5.0</td><td class="num">108.6</td></tr>
+  <tr><td>シンエンペラー</td><td class="num">25</td><td class="num">19.5</td><td class="num">12.0</td><td class="num">0.0</td><td class="num">5</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">8.1</td><td class="num">3.0</td><td class="num">15</td><td class="num">18</td><td class="num">2.5</td><td class="num">108.0</td></tr>
+  <tr><td>ジューンテイク</td><td class="num">25</td><td class="num">24.0</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">9.4</td><td class="num">2.9</td><td class="num">14</td><td class="num">14</td><td class="num">0.0</td><td class="num">102.8</td></tr>
+  <tr><td>コスモキュランダ</td><td class="num">25</td><td class="num">21.0</td><td class="num">12.8</td><td class="num">0.0</td><td class="num">5</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">9.9</td><td class="num">3.2</td><td class="num">11</td><td class="num">11</td><td class="num">0.0</td><td class="num">98.9</td></tr>
+  <tr><td>シェイクユアハート</td><td class="num">8</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">15.0</td><td class="num">10.0</td><td class="num">15.0</td><td class="num">0.0</td><td class="num">1.5</td><td class="num">5</td><td class="num">2</td><td class="num">0.0</td><td class="num">95.6</td></tr>
+  <tr><td>ビザンチンドリーム</td><td class="num">25</td><td class="num">19.5</td><td class="num">12.0</td><td class="num">0.0</td><td class="num">5</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">4.9</td><td class="num">2.5</td><td class="num">8</td><td class="num">3</td><td class="num">0.0</td><td class="num">79.9</td></tr>
+  <tr><td>スティンガーグラス</td><td class="num">25</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">3.1</td><td class="num">2.0</td><td class="num">1</td><td class="num">1</td><td class="num">0.0</td><td class="num">71.2</td></tr>
+  <tr><td>マイネルエンペラー</td><td class="num">8</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">16.1</td><td class="num">4.3</td><td class="num">1</td><td class="num">1</td><td class="num">0.0</td><td class="num">69.5</td></tr>
+  <tr><td>シュガークン</td><td class="num">25</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">1.3</td><td class="num">1</td><td class="num">1</td><td class="num">0.0</td><td class="num">67.4</td></tr>
+  <tr><td>ミクニインスパイア</td><td class="num">20</td><td class="num">24.0</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">1.5</td><td class="num">4</td><td class="num">2</td><td class="num">0.0</td><td class="num">65.1</td></tr>
+  <tr><td>ファミリータイム</td><td class="num">25</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0</td><td class="num">0</td><td class="num">0.0</td><td class="num">64.1</td></tr>
+  <tr><td>ミステリーウェイ</td><td class="num">2</td><td class="num">25.5</td><td class="num">13.6</td><td class="num">0.0</td><td class="num">0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0</td><td class="num">0</td><td class="num">0.0</td><td class="num">41.1</td></tr>
+</table>
+</div>
+
+<!-- ════════════════ 問題点・改善案 ════════════════ -->
+<h2>5. 現在の問題点と改善案</h2>
+
+<div class="warn">
+  <strong>問題1: YouTube/ニュースのウェイトが大きすぎる</strong><br>
+  クロワのYT+News = 159pt で、G1実績(49pt)の3倍以上。世論データは「市場の合意」として有用だが、独自の予測力が低下する。<br>
+  <strong>改善案</strong>: ×2 → ×1 に半減、またはYT/Newsスコアを0-20に正規化
+</div>
+
+<div class="warn">
+  <strong>問題2: データ不足の馬の距離・コース適性が不正確</strong><br>
+  シェイクユアハート: 鳴尾記念1走だけで勝率100%→15pt。サンプル数が少ないのに過大評価。<br>
+  <strong>改善案</strong>: 出走数による信頼度補正（runs < 3 なら × 0.5）
+</div>
+
+<div class="warn">
+  <strong>問題3: 前走データなしの馬が多い</strong><br>
+  CSV未登録の馬は前走着順=NaN→0ptで不利。ファミリータイム、ミステリーウェイは全項目0。<br>
+  <strong>改善案</strong>: entries CSVの prev_race/prev_finish からフォールバック取得
+</div>
+
+<div class="warn">
+  <strong>問題4: 阪神適性の信頼度が低い</strong><br>
+  ほとんどの馬が阪神1-2走しかない。100%か0%の二択になりがち。<br>
+  <strong>改善案</strong>: 「右回り2000m以上の重賞」に範囲を拡大して集計
+</div>
+
+<div class="ok">
+  <strong>良い点: 騎手力</strong><br>
+  G1実績のログスケール化により、武豊(79勝→19.7pt)とルメール(48勝→17.5pt)が適切な差。
+  北村友一(6勝→8.8pt)は実績通り控えめ。
+</div>
+
+<div class="ok">
+  <strong>良い点: 馬齢バイアス</strong><br>
+  宝塚記念の過去傾向（5歳25pt > 4歳20pt > 6歳8pt）を正しく反映。
+</div>
+
+<!-- ════════════════ 予測結果 ════════════════ -->
+<h2>6. 最終予測結果</h2>
+<table>
+  <tr><th>順位</th><th>印</th><th>馬名</th><th>騎手</th><th>合計スコア</th><th>勝率</th><th>主な根拠</th></tr>
+  <tr class="hi"><td>1</td><td style="color:#dc2626; font-size:1.2em">◎</td><td><strong>クロワデュノール</strong></td><td>北村友一</td><td class="num">311.8</td><td class="num">17.7%</td><td>G1:4勝, 10戦7勝, YT/News圧倒的支持</td></tr>
+  <tr class="hi"><td>2</td><td style="color:#2563eb; font-size:1.2em">○</td><td><strong>ミュージアムマイル</strong></td><td>D.レーン</td><td class="num">238.3</td><td class="num">11.8%</td><td>有馬1着, 皐月賞1着, レーン騎乗</td></tr>
+  <tr class="hi"><td>3</td><td style="color:#d97706; font-size:1.2em">▲</td><td><strong>レガレイラ</strong></td><td>C.ルメール</td><td class="num">224.0</td><td class="num">11.2%</td><td>G1:3勝, ルメール, 但し昨年宝塚11着</td></tr>
+  <tr class="hi"><td>4</td><td style="color:#6b7280; font-size:1.2em">△</td><td><strong>ダノンデサイル</strong></td><td>戸崎圭太</td><td class="num">220.4</td><td class="num">11.1%</td><td>G1:2勝, JC/有馬で堅実な3着多数</td></tr>
+  <tr class="hi"><td>5</td><td style="color:#6b7280; font-size:1.2em">△</td><td><strong>メイショウタバル</strong></td><td>武豊</td><td class="num">232.0</td><td class="num">10.6%</td><td>昨年宝塚1着(逃げ切り), 武豊G1:79, 但し近走不振</td></tr>
+</table>
+
+</div>
+<footer>競馬予想AI - スコアリングロジックドキュメント v2.0 | 2026-06-09</footer>
+</body>
+</html>
