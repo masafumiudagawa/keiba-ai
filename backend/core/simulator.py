@@ -59,6 +59,17 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
     Returns:
         シミュレーション結果dict
     """
+    import math
+
+    def _safe_int(v, default=0):
+        if v is None:
+            return default
+        try:
+            f = float(v)
+            return default if math.isnan(f) else int(f)
+        except (ValueError, TypeError):
+            return default
+
     n_horses = len(horses)
     n_checkpoints = len(CHECKPOINTS)
 
@@ -67,13 +78,13 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
 
     # 各馬のパラメータ設定
     horse_params = []
-    for h in horses:
+    for i, h in enumerate(horses):
         name = h.get("horse_name", "")
         params = DEFAULT_HORSE_PARAMS.get(name, {"style": "senko", "base_speed": 0.97, "stamina": 0.98})
         style = STYLES[params["style"]]
         horse_params.append({
             "name": name,
-            "gate": int(h.get("gate_number", 0) or 0),
+            "gate": _safe_int(h.get("gate_number"), i + 1),
             "base_speed": params["base_speed"] * condition_factor,
             "stamina": params["stamina"],
             "style": params["style"],
