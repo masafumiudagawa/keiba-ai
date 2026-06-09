@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { BettingResponse, PredictionResponse } from '../types'
+import type { BettingResponse } from '../types'
 
 const BET_TYPES = [
   { id: 'win', label: '単勝' }, { id: 'place', label: '複勝' },
