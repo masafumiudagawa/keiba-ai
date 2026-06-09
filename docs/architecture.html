@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宝塚記念2026 予測AI - システム設計書</title>
+<style>
+  :root {
+    --primary: #1a1a2e;
+    --secondary: #16213e;
+    --accent: #0f3460;
+    --highlight: #e94560;
+    --gold: #d4a843;
+    --green: #2ecc71;
+    --bg: #f5f5f0;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --muted: #7f8c8d;
+    --border: #ddd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+  /* ── Header ── */
+  .hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, var(--highlight) 100%);
+    color: #fff; padding: 50px 40px; text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; letter-spacing: 2px; margin-bottom: 8px; }
+  .hero .sub { font-size: 1.1rem; opacity: .85; }
+  .hero .badges { margin-top: 18px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero .badge { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); border-radius: 20px; padding: 5px 16px; font-size: .85rem; }
+
+  /* ── Container ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+  section { margin-bottom: 50px; }
+  h2 { font-size: 1.6rem; color: var(--primary); border-left: 5px solid var(--highlight); padding-left: 15px; margin-bottom: 20px; }
+  h3 { font-size: 1.2rem; color: var(--accent); margin: 20px 0 10px; }
+
+  /* ── Cards ── */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+  .card {
+    background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    border-top: 4px solid var(--accent); transition: transform .2s;
+  }
+  .card:hover { transform: translateY(-3px); }
+  .card.red   { border-top-color: var(--highlight); }
+  .card.gold  { border-top-color: var(--gold); }
+  .card.green { border-top-color: var(--green); }
+  .card h3 { margin-top: 0; }
+  .card .num { font-size: 2.5rem; font-weight: 800; color: var(--highlight); }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+  th { background: var(--secondary); color: #fff; padding: 12px 16px; text-align: left; font-size: .9rem; }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8f9fa; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .75rem; font-weight: 600; }
+  .tag.fe { background: #e8f5e9; color: #2e7d32; }
+  .tag.be { background: #e3f2fd; color: #1565c0; }
+  .tag.db { background: #fff3e0; color: #e65100; }
+  .tag.new { background: #fce4ec; color: #c62828; }
+
+  /* ── Flow ── */
+  .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 20px 0; }
+  .flow-step {
+    background: var(--card); border: 2px solid var(--accent); border-radius: 10px;
+    padding: 14px 20px; text-align: center; min-width: 140px; font-size: .9rem; font-weight: 600;
+  }
+  .flow-step.highlight { background: var(--highlight); color: #fff; border-color: var(--highlight); }
+  .flow-arrow { font-size: 1.5rem; color: var(--accent); }
+
+  /* ── Screen mock ── */
+  .screen-mock {
+    background: var(--primary); border-radius: 12px; padding: 20px; color: #fff;
+    margin: 20px 0; overflow: hidden;
+  }
+  .screen-mock .tab-bar { display: flex; gap: 0; margin-bottom: 16px; }
+  .screen-mock .tab {
+    padding: 10px 24px; background: var(--secondary); cursor: pointer; font-size: .9rem;
+    border-bottom: 3px solid transparent;
+  }
+  .screen-mock .tab.active { border-bottom-color: var(--highlight); color: var(--highlight); }
+  .screen-mock .content { padding: 10px; min-height: 200px; }
+  .screen-mock table th { background: var(--accent); }
+  .screen-mock td { color: #ddd; border-color: #333; }
+  .screen-mock tr:hover td { background: rgba(255,255,255,.05); }
+
+  /* ── Race track ── */
+  .track-demo {
+    background: #2d5a27; border-radius: 120px; width: 100%; max-width: 600px;
+    height: 250px; margin: 20px auto; position: relative; border: 6px solid #1a3a15;
+    overflow: hidden;
+  }
+  .track-inner {
+    position: absolute; top: 40px; left: 60px; right: 60px; bottom: 40px;
+    border: 3px dashed rgba(255,255,255,.3); border-radius: 80px;
+  }
+  .horse-dot {
+    position: absolute; width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5);
+  }
+  .horse-dot.h1 { background: #e74c3c; top: 30px; left: 35%; }
+  .horse-dot.h2 { background: #3498db; top: 50px; left: 30%; }
+  .horse-dot.h3 { background: #f1c40f; color: #333; top: 45px; left: 25%; }
+  .horse-dot.h4 { background: #2ecc71; top: 70px; left: 20%; }
+  .horse-dot.h5 { background: #9b59b6; top: 85px; left: 18%; }
+  .track-label {
+    position: absolute; color: rgba(255,255,255,.7); font-size: .8rem; font-weight: 600;
+  }
+  .track-label.start { bottom: 10px; right: 20px; }
+  .track-label.goal { bottom: 10px; left: 20px; }
+  .track-label.corner { top: 10px; left: 50%; transform: translateX(-50%); }
+
+  /* ── Code ── */
+  .code { background: #1e1e1e; color: #d4d4d4; padding: 16px 20px; border-radius: 8px; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: .85rem; overflow-x: auto; margin: 10px 0; white-space: pre; }
+  .code .kw { color: #569cd6; }
+  .code .str { color: #ce9178; }
+  .code .cm { color: #6a9955; }
+
+  /* ── List ── */
+  ul { padding-left: 24px; margin: 8px 0; }
+  li { margin-bottom: 6px; }
+  .check::before { content: '✓ '; color: var(--green); font-weight: bold; }
+
+  /* ── Misc ── */
+  .divider { border: none; border-top: 2px solid var(--border); margin: 40px 0; }
+  .highlight-box {
+    background: linear-gradient(135deg, #fff9c4, #fff3e0); border-left: 5px solid var(--gold);
+    padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 16px 0;
+  }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  footer { text-align: center; padding: 30px; color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- HERO -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="hero">
+  <h1>KEIBA AI - System Architecture</h1>
+  <div class="sub">宝塚記念 2026 予測シミュレーション Web アプリ 設計書</div>
+  <div class="badges">
+    <span class="badge">FastAPI + React</span>
+    <span class="badge">LightGBM / Rule-based Ensemble</span>
+    <span class="badge">Canvas Animation</span>
+    <span class="badge">Render Deploy</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 1. 概要 -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>1. プロジェクト概要</h2>
+  <div class="card-grid">
+    <div class="card red">
+      <div class="num">01</div>
+      <h3>予測結果一覧</h3>
+      <p>53特徴量 + 7データソースから各馬の勝率・複勝率を算出し、表形式で一覧表示。リアルタイムでデータ更新に追従。</p>
+    </div>
+    <div class="card gold">
+      <div class="num">02</div>
+      <h3>レースシミュレーション</h3>
+      <p>モンテカルロシミュレーションでレース展開を生成し、馬番号が動くアニメーションで可視化。各馬の脚質・ペース・位置取りを再現。</p>
+    </div>
+    <div class="card green">
+      <div class="num">03</div>
+      <h3>買い目オプティマイザ</h3>
+      <p>投資金額・許容リスクを入力すると、ケリー基準と期待値計算に基づいて最適な買い目（単勝/馬連/三連複等）を自動提案。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 2. アーキテクチャ -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>2. システムアーキテクチャ</h2>
+
+  <h3>全体構成図</h3>
+  <div class="flow">
+    <div class="flow-step">Data Scrapers<br><small>netkeiba / YouTube / Weather</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">CSV / SQLite<br><small>data store</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step highlight">FastAPI<br><small>Backend API</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">React SPA<br><small>Frontend</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Render<br><small>Hosting</small></div>
+  </div>
+
+  <h3>技術スタック</h3>
+  <table>
+    <tr><th>レイヤー</th><th>技術</th><th>選定理由</th></tr>
+    <tr><td>Frontend</td><td>React 18 + TypeScript + Vite</td><td>SPA高速開発、Canvas APIでアニメーション</td></tr>
+    <tr><td>UI</td><td>Tailwind CSS</td><td>ユーティリティファースト、レスポンシブ対応</td></tr>
+    <tr><td>アニメーション</td><td>HTML5 Canvas + requestAnimationFrame</td><td>馬の動きを60fps描画、ライブラリ不要</td></tr>
+    <tr><td>Backend</td><td>FastAPI (Python)</td><td>既存の予測コードをそのまま活用、高速API</td></tr>
+    <tr><td>ML</td><td>LightGBM + ルールベース</td><td>アンサンブル予測（既存コード流用）</td></tr>
+    <tr><td>シミュレーション</td><td>NumPy モンテカルロ法</td><td>レース展開の確率的生成</td></tr>
+    <tr><td>DB</td><td>SQLite (Render) / CSV</td><td>軽量、デプロイ容易</td></tr>
+    <tr><td>ホスティング</td><td>Render (Web Service + Static Site)</td><td>無料枠あり、GitHub連携デプロイ</td></tr>
+    <tr><td>ドメイン</td><td>カスタムドメイン (Render設定)</td><td>HTTPS自動、DNS設定のみ</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 3. ディレクトリ構成 -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>3. ディレクトリ構成（改修後）</h2>
+  <div class="code">keiba_ai/
+├── <span class="kw">backend/</span>                    <span class="cm"># FastAPI サーバー</span>
+│   ├── main.py                  <span class="cm"># FastAPI エントリポイント</span>
+│   ├── api/
+│   │   ├── predictions.py       <span class="cm"># GET /api/predictions - 予測結果</span>
+│   │   ├── simulation.py        <span class="cm"># POST /api/simulate  - レースシミュレーション</span>
+│   │   ├── betting.py           <span class="cm"># POST /api/betting    - 買い目最適化</span>
+│   │   └── data_status.py       <span class="cm"># GET /api/status      - データ収集状況</span>
+│   ├── core/
+│   │   ├── predictor.py         <span class="cm"># 予測エンジン（既存改修）</span>
+│   │   ├── simulator.py         <span class="cm"># <span class="kw">NEW</span> モンテカルロレースシミュレーター</span>
+│   │   ├── optimizer.py         <span class="cm"># <span class="kw">NEW</span> 買い目最適化エンジン</span>
+│   │   └── feature_eng.py       <span class="cm"># 特徴量エンジン（既存移行）</span>
+│   ├── scraper/                 <span class="cm"># 既存スクレイパー群</span>
+│   ├── models/                  <span class="cm"># 学習済みモデル</span>
+│   ├── data/                    <span class="cm"># CSV / SQLite</span>
+│   ├── requirements.txt
+│   └── render.yaml              <span class="cm"># Render デプロイ設定</span>
+│
+├── <span class="kw">frontend/</span>                   <span class="cm"># React SPA</span>
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── pages/
+│   │   │   ├── PredictionTable.tsx   <span class="cm"># 機能① 予測一覧</span>
+│   │   │   ├── RaceSimulation.tsx    <span class="cm"># 機能② レースアニメーション</span>
+│   │   │   └── BettingOptimizer.tsx  <span class="cm"># 機能③ 買い目最適化</span>
+│   │   ├── components/
+│   │   │   ├── HorseTable.tsx        <span class="cm"># 馬一覧テーブル</span>
+│   │   │   ├── RaceCanvas.tsx        <span class="cm"># <span class="kw">Canvas アニメーション</span></span>
+│   │   │   ├── TrackView.tsx         <span class="cm"># コース描画</span>
+│   │   │   ├── BettingForm.tsx       <span class="cm"># 買い目入力フォーム</span>
+│   │   │   └── DataStatus.tsx        <span class="cm"># データ収集状況</span>
+│   │   ├── hooks/
+│   │   │   └── useSimulation.ts      <span class="cm"># シミュレーション制御Hook</span>
+│   │   └── types/
+│   │       └── index.ts
+│   ├── package.json
+│   └── vite.config.ts
+│
+└── <span class="cm">render.yaml</span>                  <span class="cm"># Render Blueprint（BE+FE一括デプロイ）</span></div>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 4. 機能① 予測結果一覧 -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>4. 機能① 予測結果一覧</h2>
+
+  <h3>画面イメージ</h3>
+  <div class="screen-mock">
+    <div class="tab-bar">
+      <div class="tab active">予測一覧</div>
+      <div class="tab">レースシミュレーション</div>
+      <div class="tab">買い目最適化</div>
+    </div>
+    <div class="content">
+      <div style="margin-bottom:12px; opacity:.7; font-size:.85rem;">
+        宝塚記念 2026 | 阪神 芝2200m | 6/14(日) 15:40 | 馬場予測: 良 | 全18頭
+      </div>
+      <table style="width:100%">
+        <tr>
+          <th>順位</th><th>馬番</th><th>馬名</th><th>騎手</th>
+          <th>勝率</th><th>複勝率</th><th>AI指数</th><th>印</th>
+        </tr>
+        <tr>
+          <td>1</td><td style="text-align:center">?</td><td style="color:#e94560; font-weight:700">クロワデュノール</td>
+          <td>北村友一</td><td style="color:#e94560; font-weight:700">23.1%</td>
+          <td>45.2%</td><td>92.4</td><td style="font-size:1.2rem; color:#e94560">&#9678;</td>
+        </tr>
+        <tr>
+          <td>2</td><td style="text-align:center">?</td><td style="color:#3498db; font-weight:600">ミュージアムマイル</td>
+          <td>D.レーン</td><td>16.4%</td><td>38.1%</td><td>85.7</td>
+          <td style="font-size:1.2rem; color:#3498db">&#9675;</td>
+        </tr>
+        <tr>
+          <td>3</td><td style="text-align:center">?</td><td style="font-weight:600">メイショウタバル</td>
+          <td>武豊</td><td>16.3%</td><td>37.8%</td><td>85.3</td>
+          <td style="font-size:1.2rem">&#9651;</td>
+        </tr>
+        <tr><td>4</td><td style="text-align:center">?</td><td>レガレイラ</td><td>C.ルメール</td><td>8.0%</td><td>22.5%</td><td>71.2</td><td style="font-size:1.2rem">&#9661;</td></tr>
+        <tr><td>5</td><td style="text-align:center">?</td><td>ダノンデサイル</td><td>戸崎圭太</td><td>7.2%</td><td>20.8%</td><td>68.2</td><td style="font-size:1.2rem">&#9661;</td></tr>
+      </table>
+      <div style="margin-top:12px; opacity:.5; font-size:.8rem;">データソース: netkeiba過去91件 / YouTube予想18馬分 / ニュース18馬分 / 調教18件 / 天気予報</div>
+    </div>
+  </div>
+
+  <h3>API設計</h3>
+  <div class="code"><span class="kw">GET</span> <span class="str">/api/predictions</span>
+Response:
+{
+  "race_info": { "name": "宝塚記念", "date": "2026-06-14", "track_condition": "良", ... },
+  "predictions": [
+    {
+      "rank": 1,
+      "horse_name": "クロワデュノール",
+      "jockey": "北村友一",
+      "gate_number": null,        <span class="cm">// 木曜以降に確定</span>
+      "post_position": null,
+      "win_probability": 0.231,
+      "place_probability": 0.452,
+      "ai_score": 92.4,
+      "mark": "◎",
+      "factors": {                <span class="cm">// スコアの内訳</span>
+        "recent_form": 28.5,
+        "course_aptitude": 22.1,
+        "jockey_factor": 18.3,
+        "public_opinion": 15.2,
+        "training": 8.3
+      }
+    }, ...
+  ],
+  "data_status": { "last_updated": "...", "sources": {...} }
+}</div>
+
+  <h3>表示する項目</h3>
+  <table>
+    <tr><th>項目</th><th>説明</th><th>ソート</th></tr>
+    <tr><td>順位 / 印</td><td>AIスコア順 ◎○▲△</td><td>-</td></tr>
+    <tr><td>馬番 / 枠番</td><td>木曜確定後に自動反映</td><td>可</td></tr>
+    <tr><td>馬名 / 騎手</td><td>想定 → 確定で切替</td><td>可</td></tr>
+    <tr><td>勝率</td><td>単勝で1着になる確率</td><td>可</td></tr>
+    <tr><td>複勝率</td><td>3着以内に入る確率</td><td>可</td></tr>
+    <tr><td>AI指数</td><td>0-100の総合スコア</td><td>可</td></tr>
+    <tr><td>スコア内訳</td><td>展開クリックで内訳バー表示</td><td>-</td></tr>
+    <tr><td>前走</td><td>レース名・着順・タイム</td><td>-</td></tr>
+    <tr><td>YouTube支持率</td><td>予想家の本命指名数</td><td>可</td></tr>
+    <tr><td>調教評価</td><td>A/B/C</td><td>可</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 5. 機能② レースシミュレーション -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>5. 機能② レースシミュレーション動画</h2>
+
+  <h3>コース描画イメージ</h3>
+  <div class="track-demo">
+    <div class="track-inner"></div>
+    <div class="horse-dot h1">7</div>
+    <div class="horse-dot h2">12</div>
+    <div class="horse-dot h3">1</div>
+    <div class="horse-dot h4">5</div>
+    <div class="horse-dot h5">16</div>
+    <div class="track-label start">START</div>
+    <div class="track-label goal">GOAL</div>
+    <div class="track-label corner">3角 &rarr; 4角</div>
+  </div>
+
+  <h3>シミュレーションロジック（モンテカルロ法）</h3>
+  <div class="highlight-box">
+    <strong>各馬のレース中のポジションを200mごとにシミュレーション</strong>
+    <ul style="margin-top:8px">
+      <li>各馬にスピード基礎値・脚質パラメータ（逃げ/先行/差し/追込）を設定</li>
+      <li>ペース（ハイ/ミドル/スロー）を確率的に生成</li>
+      <li>コーナーでの加速減速・内外差・位置取りロスを物理モデルで反映</li>
+      <li>ラスト600m（上がり3F）で各馬の末脚能力を適用</li>
+      <li>ランダム要素（馬場状態・展開運・不利）を付加して1000回試行</li>
+      <li>1000回の中央値パターンを「代表シミュレーション」として動画化</li>
+    </ul>
+  </div>
+
+  <h3>アニメーション仕様</h3>
+  <table>
+    <tr><th>項目</th><th>仕様</th></tr>
+    <tr><td>描画</td><td>HTML5 Canvas (2D) + requestAnimationFrame (60fps)</td></tr>
+    <tr><td>コース</td><td>阪神芝2200m 右回り楕円を上空ビューで描画</td></tr>
+    <tr><td>馬の表現</td><td>番号付き円（馬番カラー）、先頭からの差を実スケール反映</td></tr>
+    <tr><td>区間</td><td>200m刻み（合計11区間）で位置を補間描画</td></tr>
+    <tr><td>操作</td><td>再生/一時停止/速度変更(1x/2x/4x)/リプレイ</td></tr>
+    <tr><td>情報表示</td><td>右側にリアルタイム順位表 + 残り距離 + ラップタイム</td></tr>
+    <tr><td>レース後</td><td>着順確定 → 写真判定風のフィニッシュ演出</td></tr>
+  </table>
+
+  <h3>API設計</h3>
+  <div class="code"><span class="kw">POST</span> <span class="str">/api/simulate</span>
+Request:
+{
+  "num_simulations": 1000,
+  "track_condition": "良",
+  "pace_scenario": "auto"     <span class="cm">// auto / slow / medium / high</span>
+}
+
+Response:
+{
+  "summary": {
+    "win_counts": {"クロワデュノール": 231, "ミュージアムマイル": 164, ...},
+    "avg_time": "2:11.4"
+  },
+  "representative_race": {     <span class="cm">// 動画用の代表レースデータ</span>
+    "total_distance": 2200,
+    "checkpoints": [0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200],
+    "horses": [
+      {
+        "gate_number": 7,
+        "horse_name": "クロワデュノール",
+        "color": "#e74c3c",
+        "style": "senko",     <span class="cm">// 脚質: nige/senko/sashi/oikomi</span>
+        "positions": [         <span class="cm">// 各チェックポイントでの先頭からの差(秒)</span>
+          0.5, 0.4, 0.3, 0.3, 0.2, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0
+        ],
+        "section_times": [12.1, 11.8, 12.0, 11.9, 12.2, 12.0, 11.8, 11.5, 11.4, 11.3, 11.2],
+        "finish_time": "2:11.2",
+        "finish_position": 1
+      }, ...
+    ],
+    "pace": { "first_1000m": "59.8", "last_600m": "34.2", "type": "medium" }
+  }
+}</div>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 6. 機能③ 買い目最適化 -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>6. 機能③ 買い目オプティマイザ</h2>
+
+  <h3>ユーザー入力</h3>
+  <table>
+    <tr><th>入力項目</th><th>型</th><th>説明</th></tr>
+    <tr><td>投資金額</td><td>数値</td><td>総投資額（例: 10,000円）</td></tr>
+    <tr><td>リスク許容度</td><td>スライダー</td><td>低（堅実）〜 高（大穴狙い）</td></tr>
+    <tr><td>馬券種別</td><td>チェックボックス</td><td>単勝/複勝/馬連/ワイド/三連複/三連単</td></tr>
+    <tr><td>オッズ</td><td>自動取得 or 手動</td><td>各馬券のオッズ</td></tr>
+    <tr><td>除外馬</td><td>選択</td><td>買いたくない馬を除外</td></tr>
+  </table>
+
+  <h3>最適化ロジック</h3>
+  <div class="highlight-box">
+    <strong>ケリー基準 + 期待値ベースの買い目最適化</strong>
+    <ol style="margin-top:8px">
+      <li><strong>期待値計算</strong>: 各馬券の的中確率(AI予測) × オッズ = 期待値</li>
+      <li><strong>フィルタリング</strong>: 期待値 > 1.0 の馬券のみ抽出（プラス期待値）</li>
+      <li><strong>ケリー基準</strong>: 各馬券の最適投資比率を算出
+        <br><code style="color:var(--highlight)">f* = (p × b - q) / b</code>
+        <br>p=的中確率, q=1-p, b=オッズ-1</li>
+      <li><strong>リスク調整</strong>: ユーザーのリスク許容度でケリー比率を縮小（1/4〜1/1 Kelly）</li>
+      <li><strong>金額配分</strong>: 投資金額を各馬券に配分（100円単位に丸め）</li>
+    </ol>
+  </div>
+
+  <h3>出力例</h3>
+  <div class="screen-mock">
+    <div style="padding:10px">
+      <div style="margin-bottom:10px; font-size:1.1rem; font-weight:700">推奨買い目 (投資: 10,000円 / リスク: 中)</div>
+      <table>
+        <tr><th>馬券種別</th><th>買い目</th><th>金額</th><th>オッズ</th><th>的中率</th><th>期待値</th></tr>
+        <tr><td>単勝</td><td>クロワデュノール</td><td style="color:#2ecc71; font-weight:700">3,000円</td><td>2.8倍</td><td>23.1%</td><td style="color:#2ecc71">0.65</td></tr>
+        <tr><td>馬連</td><td>クロワデュノール - ミュージアムマイル</td><td style="color:#2ecc71; font-weight:700">2,500円</td><td>8.5倍</td><td>12.4%</td><td style="color:#2ecc71">1.05</td></tr>
+        <tr><td>ワイド</td><td>クロワデュノール - メイショウタバル</td><td>1,500円</td><td>3.2倍</td><td>18.7%</td><td>0.60</td></tr>
+        <tr><td>三連複</td><td>クロワ - ミュージアム - メイショウ</td><td>2,000円</td><td>12.0倍</td><td>8.5%</td><td style="color:#2ecc71">1.02</td></tr>
+        <tr><td>三連複</td><td>クロワ - ミュージアム - レガレイラ</td><td>1,000円</td><td>25.0倍</td><td>5.2%</td><td style="color:#2ecc71">1.30</td></tr>
+      </table>
+      <div style="margin-top:14px; display:flex; gap:30px; font-size:.95rem">
+        <div>合計投資: <strong>10,000円</strong></div>
+        <div>期待回収: <strong style="color:#2ecc71">11,420円</strong></div>
+        <div>期待回収率: <strong style="color:#2ecc71">114.2%</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>API設計</h3>
+  <div class="code"><span class="kw">POST</span> <span class="str">/api/betting/optimize</span>
+Request:
+{
+  "budget": 10000,
+  "risk_level": "medium",       <span class="cm">// low / medium / high</span>
+  "bet_types": ["win", "quinella", "wide", "trio"],
+  "odds": {                     <span class="cm">// 自動取得 or ユーザー入力</span>
+    "win": {"クロワデュノール": 2.8, "ミュージアムマイル": 5.2, ...},
+    "quinella": {"クロワデュノール-ミュージアムマイル": 8.5, ...}
+  },
+  "excluded_horses": []
+}
+
+Response:
+{
+  "recommendations": [
+    { "bet_type": "win", "selection": "クロワデュノール",
+      "amount": 3000, "odds": 2.8, "hit_prob": 0.231, "expected_value": 0.65 },
+    ...
+  ],
+  "total_budget": 10000,
+  "expected_return": 11420,
+  "expected_roi": 1.142,
+  "risk_metrics": { "worst_case": -10000, "best_case": 95000 }
+}</div>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 7. データフロー -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>7. データフロー</h2>
+  <div class="flow">
+    <div class="flow-step">netkeiba<br>JBIS<br>JRA公式</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Scraper<br><small>定期実行</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">CSV / SQLite</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Feature<br>Engineering<br><small>53特徴量</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step highlight">予測エンジン<br><small>LightGBM<br>+ルールベース</small></div>
+  </div>
+  <div class="flow" style="margin-left:40px">
+    <div class="flow-arrow">&darr;</div>
+  </div>
+  <div class="flow">
+    <div class="flow-step" style="margin-left:0">予測結果</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step gold" style="border:2px solid var(--gold)">Monte Carlo<br>Simulator<br><small>1000回試行</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step green" style="border:2px solid var(--green)">Betting<br>Optimizer<br><small>Kelly基準</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step highlight">FastAPI<br><small>REST API</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">React SPA<br><small>Canvas動画</small></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 8. デプロイ -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>8. Render デプロイ構成</h2>
+
+  <h3>render.yaml (Blueprint)</h3>
+  <div class="code"><span class="cm"># render.yaml</span>
+services:
+  <span class="cm"># Backend API</span>
+  - type: web
+    name: keiba-ai-api
+    runtime: python
+    buildCommand: <span class="str">"pip install -r backend/requirements.txt"</span>
+    startCommand: <span class="str">"uvicorn backend.main:app --host 0.0.0.0 --port $PORT"</span>
+    envVars:
+      - key: PYTHON_VERSION
+        value: <span class="str">"3.12"</span>
+
+  <span class="cm"># Frontend (Static Site)</span>
+  - type: web
+    name: keiba-ai-web
+    runtime: static
+    buildCommand: <span class="str">"cd frontend && npm install && npm run build"</span>
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://keiba-ai-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html</div>
+
+  <h3>カスタムドメイン設定</h3>
+  <table>
+    <tr><th>ステップ</th><th>作業内容</th></tr>
+    <tr><td>1</td><td>Render Dashboard → Settings → Custom Domain でドメイン追加</td></tr>
+    <tr><td>2</td><td>DNS に CNAME レコード設定 (例: keiba-ai.example.com → *.onrender.com)</td></tr>
+    <tr><td>3</td><td>SSL証明書は Render が自動発行 (Let's Encrypt)</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 9. 開発フェーズ -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>9. 開発フェーズ</h2>
+  <table>
+    <tr><th>Phase</th><th>内容</th><th>タスク</th><th>ステータス</th></tr>
+    <tr>
+      <td><strong>Phase 0</strong></td>
+      <td>データ収集 + 予測エンジン</td>
+      <td>スクレイパー / 特徴量 / LightGBM / ルールベース</td>
+      <td><span class="tag fe">完了</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 1</strong></td>
+      <td>FastAPI バックエンド構築</td>
+      <td>既存コードのAPI化 / 予測エンドポイント / CORS設定</td>
+      <td><span class="tag new">次</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 2</strong></td>
+      <td>機能① 予測一覧UI</td>
+      <td>React + Tailwind / テーブル / ソート / フィルタ</td>
+      <td><span class="tag new">次</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 3</strong></td>
+      <td>機能② シミュレーション</td>
+      <td>Monte Carlo エンジン / Canvas アニメーション</td>
+      <td><span class="tag new">次</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 4</strong></td>
+      <td>機能③ 買い目最適化</td>
+      <td>Kelly基準 / 期待値計算 / UI</td>
+      <td><span class="tag new">次</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 5</strong></td>
+      <td>デプロイ + ドメイン</td>
+      <td>Render設定 / カスタムドメイン / HTTPS</td>
+      <td><span class="tag new">次</span></td>
+    </tr>
+  </table>
+
+  <div class="highlight-box" style="margin-top:20px">
+    <strong>開発優先度</strong>: Phase 1 → 2 → 3 → 4 → 5 の順で進行。
+    Phase 1-2 を先行完成させて早期にデプロイし、Phase 3-4 は段階的に追加する。
+    レース当日（6/14）に間に合わせるため、Phase 3 のアニメーションは簡易版で先行リリースも可。
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- 10. 新規開発対象のモジュール一覧 -->
+<!-- ════════════════════════════════════════════════ -->
+<section>
+  <h2>10. 新規開発モジュール一覧</h2>
+  <table>
+    <tr><th>モジュール</th><th>ファイル</th><th>概要</th><th>タグ</th></tr>
+    <tr><td>FastAPI サーバー</td><td>backend/main.py</td><td>CORS + ルーティング + 静的ファイル配信</td><td><span class="tag be">Backend</span></td></tr>
+    <tr><td>予測API</td><td>backend/api/predictions.py</td><td>既存predictor.pyをAPI化</td><td><span class="tag be">Backend</span></td></tr>
+    <tr><td>シミュレーションAPI</td><td>backend/api/simulation.py</td><td>Monte Carloを呼び出しJSON返却</td><td><span class="tag be">Backend</span></td></tr>
+    <tr><td>買い目API</td><td>backend/api/betting.py</td><td>Kelly最適化の結果を返却</td><td><span class="tag be">Backend</span></td></tr>
+    <tr><td>Monte Carlo シミュレーター</td><td>backend/core/simulator.py</td><td>レース展開生成（1000回試行）</td><td><span class="tag new">New Core</span></td></tr>
+    <tr><td>買い目オプティマイザ</td><td>backend/core/optimizer.py</td><td>Kelly基準 + 期待値計算</td><td><span class="tag new">New Core</span></td></tr>
+    <tr><td>予測テーブルUI</td><td>frontend/src/pages/PredictionTable.tsx</td><td>ソート可能テーブル + 詳細展開</td><td><span class="tag fe">Frontend</span></td></tr>
+    <tr><td>レースCanvasアニメーション</td><td>frontend/src/components/RaceCanvas.tsx</td><td>Canvas 2D で馬の動きを描画</td><td><span class="tag fe">Frontend</span></td></tr>
+    <tr><td>コース描画</td><td>frontend/src/components/TrackView.tsx</td><td>阪神芝2200m楕円コース描画</td><td><span class="tag fe">Frontend</span></td></tr>
+    <tr><td>買い目フォーム</td><td>frontend/src/pages/BettingOptimizer.tsx</td><td>入力フォーム + 結果テーブル</td><td><span class="tag fe">Frontend</span></td></tr>
+    <tr><td>Render設定</td><td>render.yaml</td><td>Blueprint一括デプロイ</td><td><span class="tag db">Infra</span></td></tr>
+  </table>
+</section>
+
+</div>
+
+<footer>
+  KEIBA AI - 宝塚記念 2026 予測シミュレーション<br>
+  設計書 v1.0 | 2026-06-09 作成
+</footer>
+
+</body>
+</html>

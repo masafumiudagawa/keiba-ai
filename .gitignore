@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+node_modules/
+frontend/dist/
+models/saved/*.pkl
+data/raw/hanshin_2200_history.csv
+data/processed/
+scheduler.log
+*.egg-info/
+.vite/
