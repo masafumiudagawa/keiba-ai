@@ -45,21 +45,50 @@ class SimulateResultRequest(BaseModel):
 
 # ── AI自動最適化 ──
 
+def _add_payout(result: dict) -> dict:
+    """各買い目に的中時払い戻し額を追加"""
+    for r in result.get("recommendations", []):
+        r["payout"] = int(r.get("amount", 0) * r.get("odds", 0))
+    return result
+
+
 @router.post("/betting/optimize")
 def optimize(req: OptimizeRequest):
     predictions, _ = _build_predictions()
 
     if req.pivot_horses:
-        return _pivot_optimize(predictions, req)
+        return _add_payout(_pivot_optimize(predictions, req))
 
-    return optimize_bets(
+    return _add_payout(optimize_bets(
         predictions=predictions,
         budget=req.budget,
         risk_level=req.risk_level,
         bet_types=req.bet_types,
         odds=req.odds if req.odds else None,
         excluded_horses=req.excluded_horses,
-    )
+    ))
+
+
+# ── 3パターン一括比較 ──
+
+@router.post("/betting/compare")
+def compare(req: OptimizeRequest):
+    """低/中/高の3パターンを一括で返す"""
+    predictions, _ = _build_predictions()
+    patterns = {}
+    for risk in ["low", "medium", "high"]:
+        r = optimize_bets(
+            predictions=predictions,
+            budget=req.budget,
+            risk_level=risk,
+            bet_types=req.bet_types,
+            odds=req.odds if req.odds else None,
+            excluded_horses=req.excluded_horses,
+        )
+        _add_payout(r)
+        label = {"low": "堅実", "medium": "バランス", "high": "大穴狙い"}[risk]
+        patterns[risk] = {**r, "label": label}
+    return {"patterns": patterns}
 
 
 def _pivot_optimize(predictions, req):
