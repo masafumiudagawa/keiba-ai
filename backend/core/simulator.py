@@ -10,34 +10,35 @@ from dataclasses import dataclass, field
 
 # 脚質タイプ
 STYLES = {
-    "nige":   {"early": 1.00, "mid": 0.97, "late": 0.94, "label": "逃げ"},
-    "senko":  {"early": 0.98, "mid": 0.99, "late": 0.97, "label": "先行"},
-    "sashi":  {"early": 0.94, "mid": 0.97, "late": 1.02, "label": "差し"},
-    "oikomi": {"early": 0.90, "mid": 0.95, "late": 1.06, "label": "追込"},
+    "nige":   {"early": 1.015, "mid": 0.995, "late": 0.990, "label": "逃げ"},
+    "senko":  {"early": 1.005, "mid": 1.000, "late": 0.995, "label": "先行"},
+    "sashi":  {"early": 0.985, "mid": 0.995, "late": 1.015, "label": "差し"},
+    "oikomi": {"early": 0.975, "mid": 0.990, "late": 1.025, "label": "追込"},
 }
 
 CHECKPOINTS = list(range(0, 2400, 200))  # 0,200,...,2200
 
-# 各馬のデフォルト脚質（前走データから推定）
+# 各馬のパラメータ（実際のG1は1-2%差で決まる）
+# base_speed: 1.000中心 ±0.015の範囲に収める
 DEFAULT_HORSE_PARAMS = {
-    "クロワデュノール":   {"style": "senko",  "base_speed": 1.04, "stamina": 1.02},
-    "ミュージアムマイル": {"style": "sashi",   "base_speed": 1.03, "stamina": 1.01},
-    "メイショウタバル":   {"style": "nige",    "base_speed": 1.02, "stamina": 1.03},
-    "レガレイラ":         {"style": "sashi",   "base_speed": 1.02, "stamina": 1.00},
-    "ダノンデサイル":     {"style": "senko",   "base_speed": 1.01, "stamina": 1.02},
-    "タガノデュード":     {"style": "sashi",   "base_speed": 0.99, "stamina": 1.01},
-    "シンエンペラー":     {"style": "senko",   "base_speed": 1.00, "stamina": 0.99},
-    "ジューンテイク":     {"style": "sashi",   "base_speed": 0.98, "stamina": 1.01},
-    "マイユニバース":     {"style": "senko",   "base_speed": 0.99, "stamina": 1.00},
-    "コスモキュランダ":   {"style": "senko",   "base_speed": 0.99, "stamina": 1.00},
-    "ビザンチンドリーム": {"style": "oikomi",  "base_speed": 0.98, "stamina": 1.00},
-    "マイネルエンペラー": {"style": "senko",   "base_speed": 0.97, "stamina": 0.99},
-    "スティンガーグラス": {"style": "sashi",   "base_speed": 0.96, "stamina": 0.99},
-    "シュガークン":       {"style": "senko",   "base_speed": 0.96, "stamina": 0.98},
-    "ミクニインスパイア": {"style": "sashi",   "base_speed": 0.96, "stamina": 0.99},
-    "シェイクユアハート": {"style": "nige",    "base_speed": 0.95, "stamina": 0.98},
-    "ファミリータイム":   {"style": "sashi",   "base_speed": 0.94, "stamina": 0.97},
-    "ミステリーウェイ":   {"style": "senko",   "base_speed": 0.93, "stamina": 0.96},
+    "クロワデュノール":   {"style": "senko",  "base_speed": 1.012, "stamina": 1.005},
+    "ミュージアムマイル": {"style": "sashi",   "base_speed": 1.009, "stamina": 1.003},
+    "メイショウタバル":   {"style": "nige",    "base_speed": 1.008, "stamina": 1.006},
+    "レガレイラ":         {"style": "sashi",   "base_speed": 1.007, "stamina": 1.002},
+    "ダノンデサイル":     {"style": "senko",   "base_speed": 1.006, "stamina": 1.004},
+    "タガノデュード":     {"style": "sashi",   "base_speed": 1.002, "stamina": 1.003},
+    "シンエンペラー":     {"style": "senko",   "base_speed": 1.003, "stamina": 1.000},
+    "ジューンテイク":     {"style": "sashi",   "base_speed": 1.000, "stamina": 1.002},
+    "マイユニバース":     {"style": "senko",   "base_speed": 1.001, "stamina": 1.001},
+    "コスモキュランダ":   {"style": "senko",   "base_speed": 1.001, "stamina": 1.001},
+    "ビザンチンドリーム": {"style": "oikomi",  "base_speed": 1.000, "stamina": 1.002},
+    "マイネルエンペラー": {"style": "senko",   "base_speed": 0.998, "stamina": 0.999},
+    "スティンガーグラス": {"style": "sashi",   "base_speed": 0.997, "stamina": 0.999},
+    "シュガークン":       {"style": "senko",   "base_speed": 0.997, "stamina": 0.998},
+    "ミクニインスパイア": {"style": "sashi",   "base_speed": 0.996, "stamina": 0.999},
+    "シェイクユアハート": {"style": "nige",    "base_speed": 0.995, "stamina": 0.998},
+    "ファミリータイム":   {"style": "sashi",   "base_speed": 0.994, "stamina": 0.997},
+    "ミステリーウェイ":   {"style": "senko",   "base_speed": 0.993, "stamina": 0.996},
 }
 
 # 枠色
@@ -104,7 +105,10 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
 
     for sim in range(n_simulations):
         # ペースシナリオ（ランダム）
-        pace_var = np.random.normal(0, 0.3)  # ペースのブレ
+        pace_var = np.random.normal(0, 0.2)
+
+        # 各馬に「当日の調子」をランダムに付与（±0.5%程度）
+        daily_form = np.random.normal(0, 0.005, n_horses)
 
         cumulative_times = np.zeros(n_horses)
         positions = np.zeros((n_horses, n_checkpoints))
@@ -126,13 +130,17 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
                 # スタミナ消耗
                 stamina_decay = 1.0 - (1.0 - hp["stamina"]) * progress
 
-                # ランダム要素
-                noise = np.random.normal(0, 0.15)
+                # ランダム要素（区間ごとのブレ + 展開運 + 当日の調子）
+                noise = np.random.normal(0, 0.25)
+
+                # 馬群での不利（中団〜後方は不利を受けやすい）
+                traffic = np.random.uniform(0, 0.1) if 0.3 < progress < 0.8 else 0
 
                 # 区間タイム
-                section_time = base_section_time / (hp["base_speed"] * phase_mult * stamina_decay) + noise + pace_var * 0.1
+                speed = (hp["base_speed"] + daily_form[hi]) * phase_mult * stamina_decay
+                section_time = base_section_time / speed + noise + pace_var * 0.05 + traffic
 
-                cumulative_times[hi] += max(section_time, 10.0)
+                cumulative_times[hi] += max(section_time, 10.5)
                 positions[hi, cp_idx] = cumulative_times[hi]
 
         # 着順決定

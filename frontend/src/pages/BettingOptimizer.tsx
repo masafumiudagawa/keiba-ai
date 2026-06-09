@@ -34,9 +34,9 @@ export default function BettingOptimizer() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Input Form */}
-      <div className="bg-white rounded-xl p-6 space-y-6 shadow-sm border border-slate-200">
+      <div className="bg-white rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6 shadow-sm border border-slate-200">
         <h3 className="text-lg font-bold text-slate-800">投資設定</h3>
 
         <div>
@@ -121,38 +121,50 @@ export default function BettingOptimizer() {
               </div>
             </div>
 
-            {/* Bet Table */}
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+            {/* Bet Table - Desktop */}
+            <div className="hidden sm:block bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-100 text-slate-600">
-                    <th className="px-4 py-3 text-left font-semibold">種別</th>
-                    <th className="px-4 py-3 text-left font-semibold">買い目</th>
-                    <th className="px-4 py-3 text-right font-semibold">金額</th>
-                    <th className="px-4 py-3 text-right font-semibold">オッズ</th>
-                    <th className="px-4 py-3 text-right font-semibold">的中率</th>
-                    <th className="px-4 py-3 text-right font-semibold">期待値</th>
+                    <th className="px-3 py-2 text-left font-semibold">種別</th>
+                    <th className="px-3 py-2 text-left font-semibold">買い目</th>
+                    <th className="px-3 py-2 text-right font-semibold">金額</th>
+                    <th className="px-3 py-2 text-right font-semibold">オッズ</th>
+                    <th className="px-3 py-2 text-right font-semibold">的中率</th>
+                    <th className="px-3 py-2 text-right font-semibold">期待値</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.recommendations.map((r, i) => (
                     <tr key={i} className="border-t border-slate-100 hover:bg-blue-50">
-                      <td className="px-4 py-3">
-                        <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-medium">{r.bet_type_ja}</span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-800">{r.selection}</td>
-                      <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">
-                        {r.amount.toLocaleString()}円
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-600">{r.odds}倍</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-600">{(r.hit_prob * 100).toFixed(1)}%</td>
-                      <td className={`px-4 py-3 text-right font-mono font-bold ${r.expected_value >= 1 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                        {r.expected_value.toFixed(2)}
-                      </td>
+                      <td className="px-3 py-2"><span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs">{r.bet_type_ja}</span></td>
+                      <td className="px-3 py-2 font-medium text-slate-800 text-xs">{r.selection}</td>
+                      <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600">{r.amount.toLocaleString()}円</td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-600">{r.odds}倍</td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-600">{(r.hit_prob * 100).toFixed(1)}%</td>
+                      <td className={`px-3 py-2 text-right font-mono font-bold ${r.expected_value >= 1 ? 'text-emerald-600' : 'text-slate-500'}`}>{r.expected_value.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Bet Cards - Mobile */}
+            <div className="sm:hidden space-y-2">
+              {result.recommendations.map((r, i) => (
+                <div key={i} className="bg-white rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">{r.bet_type_ja}</span>
+                    <span className="font-mono font-bold text-emerald-600">{r.amount.toLocaleString()}円</span>
+                  </div>
+                  <div className="text-sm font-medium text-slate-800 mb-1">{r.selection}</div>
+                  <div className="flex gap-3 text-xs text-slate-500">
+                    <span>{r.odds}倍</span>
+                    <span>的中 {(r.hit_prob * 100).toFixed(1)}%</span>
+                    <span className={r.expected_value >= 1 ? 'text-emerald-600 font-bold' : ''}>EV {r.expected_value.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Risk */}

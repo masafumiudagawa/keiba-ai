@@ -101,9 +101,12 @@ export default function RaceSimulation() {
       const cpFrac = cpFloat - cpIdx
       const relPos = horse.positions[cpIdx] + (horse.positions[cpIdx + 1] - horse.positions[cpIdx]) * cpFrac
 
-      const lagAngle = relPos * 0.15
+      // relPos 0=先頭, 1=最後方 → 角度オフセットに変換
+      // 0.8ラジアン（約45度）分の差をつけて馬群を広げる
+      const lagAngle = relPos * 0.8
       const angle = goalAngle + (Math.PI * 2) * prog - lagAngle
-      const lane = ((i % 5) - 2) * 5
+      // 内外のレーン分け（隣接馬が重ならないように）
+      const lane = ((i % 4) - 1.5) * 7
       const hx = cx + (rx + lane) * Math.cos(angle)
       const hy = cy + (ry + lane) * Math.sin(angle)
 
