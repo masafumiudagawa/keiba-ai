@@ -3,7 +3,9 @@ import type { BettingResponse, PredictionResponse } from '../types'
 
 const BET_TYPES = [
   { id: 'win', label: '単勝' }, { id: 'place', label: '複勝' },
-  { id: 'quinella', label: '馬連' }, { id: 'wide', label: 'ワイド' }, { id: 'trio', label: '三連複' },
+  { id: 'exacta', label: '馬単' }, { id: 'quinella', label: '馬連' },
+  { id: 'wide', label: 'ワイド' }, { id: 'trio', label: '三連複' },
+  { id: 'trifecta', label: '三連単' },
 ]
 
 const MODES = [
@@ -152,7 +154,7 @@ export default function BettingOptimizer() {
       {/* ═══ 3パターン比較 ═══ */}
       {mode === 'compare' && (
         <div>
-          <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div className="flex flex-wrap items-end gap-3 mb-3">
             <div>
               <label className="text-xs text-slate-500 block mb-1">予算</label>
               <input type="number" step={1000} value={budget} onChange={e=>setBudget(Number(e.target.value))}
@@ -169,6 +171,12 @@ export default function BettingOptimizer() {
               className="bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 text-white px-5 py-1.5 rounded-lg font-bold text-sm">
               {loading?'計算中...':'3パターン比較'}
             </button>
+          </div>
+          <div className="flex flex-wrap gap-1 mb-4">
+            {BET_TYPES.map(bt=>(
+              <button key={bt.id} onClick={()=>setBetTypes(toggle(betTypes,bt.id))}
+                className={`px-2.5 py-1 rounded text-xs font-medium border ${betTypes.includes(bt.id)?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-500 border-slate-300'}`}>{bt.label}</button>
+            ))}
           </div>
           {compareResult && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -312,14 +320,23 @@ export default function BettingOptimizer() {
           <div className="lg:col-span-2">
             {formationResult ? (
               <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                <div className="flex gap-4 mb-3 text-sm items-center">
+                <div className="flex flex-wrap gap-3 mb-3 text-sm items-center">
                   <span className="font-bold">三連複フォーメーション</span>
                   <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">{formationResult.total_bets}点</span>
                   <span className="font-mono text-emerald-600 font-bold">{formationResult.total_cost?.toLocaleString()}円</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs">
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">的中率合計</div><div className="font-mono font-bold">{((formationResult.total_hit_prob||0)*100).toFixed(1)}%</div></div>
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">期待回収</div><div className="font-mono font-bold">{formationResult.expected_return?.toLocaleString()}円</div></div>
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">回収率</div><div className={`font-mono font-bold ${(formationResult.expected_roi||0)>=1?'text-emerald-600':'text-slate-700'}`}>{((formationResult.expected_roi||0)*100).toFixed(0)}%</div></div>
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">最高払戻</div><div className="font-mono font-bold text-blue-700">{formationResult.best_payout?.toLocaleString()}円</div></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
                   {formationResult.combinations?.map((c:any,i:number)=>(
-                    <div key={i} className="bg-slate-50 rounded px-2 py-1 text-xs text-slate-700 font-mono">{c.selection}</div>
+                    <div key={i} className="bg-slate-50 rounded px-2 py-1.5 flex justify-between text-xs">
+                      <span className="text-slate-700 font-mono">{c.selection}</span>
+                      <span className="text-blue-600 font-mono font-bold ml-2">→{c.payout?.toLocaleString()}円</span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -335,7 +352,7 @@ export default function BettingOptimizer() {
             <div className="mb-3">
               <label className="text-xs text-slate-500 mb-1 block">馬券種別</label>
               <div className="flex gap-1.5">
-                {[['quinella','馬連'],['wide','ワイド'],['trio','三連複']].map(([v,l])=>(
+                {[['quinella','馬連'],['wide','ワイド'],['exacta','馬単'],['trio','三連複']].map(([v,l])=>(
                   <button key={v} onClick={()=>setBoxBetType(v)}
                     className={`flex-1 py-1.5 rounded text-xs font-medium border ${boxBetType===v?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
                 ))}
@@ -350,14 +367,23 @@ export default function BettingOptimizer() {
           <div className="lg:col-span-2">
             {boxResult ? (
               <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                <div className="flex gap-4 mb-3 text-sm items-center">
-                  <span className="font-bold">{{quinella:'馬連',wide:'ワイド',trio:'三連複'}[boxBetType]} BOX</span>
+                <div className="flex flex-wrap gap-3 mb-3 text-sm items-center">
+                  <span className="font-bold">{{quinella:'馬連',wide:'ワイド',trio:'三連複',exacta:'馬単'}[boxBetType]} BOX</span>
                   <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">{boxResult.total_bets}点</span>
                   <span className="font-mono text-emerald-600 font-bold">{boxResult.total_cost?.toLocaleString()}円</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs">
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">的中率合計</div><div className="font-mono font-bold">{((boxResult.total_hit_prob||0)*100).toFixed(1)}%</div></div>
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">期待回収</div><div className="font-mono font-bold">{boxResult.expected_return?.toLocaleString()}円</div></div>
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">回収率</div><div className={`font-mono font-bold ${(boxResult.expected_roi||0)>=1?'text-emerald-600':'text-slate-700'}`}>{((boxResult.expected_roi||0)*100).toFixed(0)}%</div></div>
+                  <div className="bg-slate-50 rounded p-2 text-center"><div className="text-slate-400">最高払戻</div><div className="font-mono font-bold text-blue-700">{boxResult.best_payout?.toLocaleString()}円</div></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
                   {boxResult.combinations?.map((c:any,i:number)=>(
-                    <div key={i} className="bg-slate-50 rounded px-2 py-1 text-xs text-slate-700 font-mono">{c.selection}</div>
+                    <div key={i} className="bg-slate-50 rounded px-2 py-1.5 flex justify-between text-xs">
+                      <span className="text-slate-700 font-mono">{c.selection}</span>
+                      <span className="text-blue-600 font-mono font-bold ml-2">→{c.payout?.toLocaleString()}円</span>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -197,6 +197,9 @@ def _pivot_optimize(predictions, req):
 
 @router.post("/betting/formation")
 def formation(req: FormationRequest):
+    predictions, _ = _build_predictions()
+    pred_map = {p["horse_name"]: p for p in predictions}
+
     combos = set()
     for a in req.first:
         for b in req.second:
@@ -205,14 +208,34 @@ def formation(req: FormationRequest):
                 if len(trio) == 3:
                     combos.add(trio)
 
-    result = [{"selection": f"{a} - {b} - {c}"} for a, b, c in sorted(combos)]
+    result = []
+    total_hit_prob = 0
+    for a, b, c in sorted(combos):
+        pa = pred_map.get(a, {}).get("place_probability", 0.1)
+        pb = pred_map.get(b, {}).get("place_probability", 0.1)
+        pc = pred_map.get(c, {}).get("place_probability", 0.1)
+        p = min(pa * pb * pc * 15, 0.3)
+        o = round(max(0.75 / max(p, 0.0001) * 1.2, 5.0), 1)
+        total_hit_prob += p
+        result.append({
+            "selection": f"{a} - {b} - {c}",
+            "hit_prob": round(p, 4),
+            "odds": o,
+            "payout": int(req.amount_per_bet * o),
+        })
+
     total = len(result) * req.amount_per_bet
+    expected_return = sum(r["hit_prob"] * r["payout"] for r in result)
 
     return {
         "combinations": result,
         "total_bets": len(result),
         "total_cost": total,
         "amount_per_bet": req.amount_per_bet,
+        "total_hit_prob": round(min(total_hit_prob, 1.0), 4),
+        "expected_return": round(expected_return),
+        "expected_roi": round(expected_return / max(total, 1), 3),
+        "best_payout": max((r["payout"] for r in result), default=0),
     }
 
 
@@ -220,22 +243,54 @@ def formation(req: FormationRequest):
 
 @router.post("/betting/box")
 def box(req: BoxRequest):
+    predictions, _ = _build_predictions()
+    pred_map = {p["horse_name"]: p for p in predictions}
+
     if req.bet_type in ("trio", "trifecta"):
         r = 3
-    elif req.bet_type in ("quinella", "wide"):
+    elif req.bet_type in ("quinella", "wide", "exacta"):
         r = 2
     else:
         r = 2
 
     combos = list(combinations(req.horses, r))
-    result = [{"selection": " - ".join(c)} for c in combos]
+    result = []
+    total_hit_prob = 0
+    for combo in combos:
+        if r == 3:
+            pa = pred_map.get(combo[0], {}).get("place_probability", 0.1)
+            pb = pred_map.get(combo[1], {}).get("place_probability", 0.1)
+            pc = pred_map.get(combo[2], {}).get("place_probability", 0.1)
+            p = min(pa * pb * pc * 15, 0.3)
+            takeout = 0.75
+        else:
+            pa = pred_map.get(combo[0], {}).get("win_probability", 0.05)
+            pb = pred_map.get(combo[1], {}).get("win_probability", 0.05)
+            p = pa * pb * 8
+            p = min(p, 0.3)
+            takeout = 0.775
+
+        o = round(max(takeout / max(p, 0.0001) * 1.15, 2.0), 1)
+        total_hit_prob += p
+        result.append({
+            "selection": " - ".join(combo),
+            "hit_prob": round(p, 4),
+            "odds": o,
+            "payout": int(req.amount_per_bet * o),
+        })
+
     total = len(result) * req.amount_per_bet
+    expected_return = sum(r["hit_prob"] * r["payout"] for r in result)
 
     return {
         "combinations": result,
         "total_bets": len(result),
         "total_cost": total,
         "amount_per_bet": req.amount_per_bet,
+        "total_hit_prob": round(min(total_hit_prob, 1.0), 4),
+        "expected_return": round(expected_return),
+        "expected_roi": round(expected_return / max(total, 1), 3),
+        "best_payout": max((r["payout"] for r in result), default=0),
     }
 
 

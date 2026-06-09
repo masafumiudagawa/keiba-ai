@@ -12,10 +12,11 @@ from itertools import combinations
 TAKEOUT = {
     "win": 0.80,
     "place": 0.80,
-    "quinella": 0.775,
+    "exacta": 0.775,     # 馬単
+    "quinella": 0.775,    # 馬連
     "wide": 0.775,
-    "trio": 0.75,
-    "trifecta": 0.725,
+    "trio": 0.75,         # 三連複
+    "trifecta": 0.725,    # 三連単
 }
 
 
@@ -162,6 +163,25 @@ def optimize_bets(predictions: list[dict], budget: int,
                 "expected_value": round(ev, 3), "kelly_fraction": kf,
             })
 
+    # ── 馬単（A→B 着順あり）──
+    if "exacta" in bet_types:
+        exacta_odds_map = odds.get("exacta", {})
+        for a, b in combinations(horses[:6], 2):
+            for first, second in [(a, b), (b, a)]:
+                key = f"{first['horse_name']}→{second['horse_name']}"
+                p1 = first["win_probability"]
+                p2_given = second["win_probability"] / (1 - p1) if p1 < 1 else 0
+                p = p1 * p2_given
+                o = exacta_odds_map.get(key, round(max(TAKEOUT["exacta"] / max(p, 0.0001) * 1.15, 5.0), 1))
+                ev = p * o
+                kf = kelly_fraction(p, o) * kelly_scale
+                all_bets.append({
+                    "bet_type": "exacta", "bet_type_ja": "馬単",
+                    "selection": f"{first['horse_name']} → {second['horse_name']}",
+                    "odds": round(o, 1), "hit_prob": round(p, 4),
+                    "expected_value": round(ev, 3), "kelly_fraction": kf,
+                })
+
     # ── 三連複 ──
     if "trio" in bet_types:
         trio_odds_map = odds.get("trio", {})
@@ -180,6 +200,27 @@ def optimize_bets(predictions: list[dict], budget: int,
                 "odds": round(o, 1), "hit_prob": round(p, 4),
                 "expected_value": round(ev, 3), "kelly_fraction": kf,
             })
+
+    # ── 三連単（A→B→C 着順あり）──
+    if "trifecta" in bet_types:
+        from itertools import permutations
+        trifecta_odds_map = odds.get("trifecta", {})
+        for combo in combinations(horses[:6], 3):
+            for a, b, c in permutations(combo):
+                key = f"{a['horse_name']}→{b['horse_name']}→{c['horse_name']}"
+                p1 = a["win_probability"]
+                p2 = b["win_probability"] / (1 - p1) if p1 < 1 else 0
+                p3 = c["win_probability"] / (1 - p1 - b["win_probability"]) if (p1 + b["win_probability"]) < 1 else 0
+                p = p1 * p2 * p3
+                o = trifecta_odds_map.get(key, round(max(TAKEOUT["trifecta"] / max(p, 0.00001) * 1.2, 20.0), 1))
+                ev = p * o
+                kf = kelly_fraction(p, o) * kelly_scale
+                all_bets.append({
+                    "bet_type": "trifecta", "bet_type_ja": "三連単",
+                    "selection": f"{a['horse_name']} → {b['horse_name']} → {c['horse_name']}",
+                    "odds": round(o, 1), "hit_prob": round(p, 4),
+                    "expected_value": round(ev, 3), "kelly_fraction": kf,
+                })
 
     # ── リスクレベル別の戦略 ──
     # low:  的中率高い買い目中心、上位馬のみ、点数少なく厚く
