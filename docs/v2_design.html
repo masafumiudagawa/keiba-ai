@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>競馬予想AI v2.0 設計書 - 汎用化 + スコアリング調整UI</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;line-height:1.7;font-size:14px}.c{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.6rem;color:#1e3a5f;margin-bottom:4px}h2{font-size:1.2rem;color:#1e3a5f;border-left:4px solid #2563eb;padding-left:10px;margin:28px 0 12px}h3{font-size:.95rem;color:#334155;margin:14px 0 6px}.sub{color:#64748b;margin-bottom:20px;font-size:.85rem}table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.8rem}th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #e2e8f0}tr:hover td{background:#f1f5f9}.card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}.f{background:#1e293b;color:#e2e8f0;padding:10px 14px;border-radius:6px;font-family:Consolas,monospace;font-size:.78rem;margin:8px 0;overflow-x:auto;white-space:pre}.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}.ok{background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-size:.82rem}.warn{background:#fffbeb;border-left:3px solid #f59e0b;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-size:.82rem}.blue{background:#eff6ff;border-left:3px solid #2563eb;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-size:.82rem}.tag{display:inline-block;padding:1px 7px;border-radius:8px;font-size:.68rem;font-weight:600}.tg{background:#dcfce7;color:#166534}.tp{background:#dbeafe;color:#1e40af}.ti{background:#fef2f2;color:#991b1b}footer{text-align:center;color:#94a3b8;padding:20px;font-size:.75rem}
+</style>
+</head>
+<body>
+<div class="c">
+
+<h1>競馬予想AI v2.0 設計書</h1>
+<p class="sub">2つの大型改修: スコアリング調整UI + 汎用レース対応 | 2026-06-09</p>
+
+<!-- ═══════════════════════════ -->
+<h2>1. 改修の全体像</h2>
+<!-- ═══════════════════════════ -->
+
+<div class="g">
+  <div class="card">
+    <h3>改修A: スコアリングウェイト調整UI</h3>
+    <p>23カテゴリのウェイトをスライダーで調整 → 予測結果がリアルタイムで変化。「世論の影響を下げたい」「上がり3Fをもっと重視したい」が画面上で即反映。</p>
+  </div>
+  <div class="card">
+    <h3>改修B: 汎用レース対応</h3>
+    <p>宝塚記念専用 → 任意のレースに対応。レースごとの距離・コース・傾向パラメータを設定可能。JRA全G1・重賞に展開。</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ -->
+<h2>2. 改修A: スコアリングウェイト調整UI</h2>
+<!-- ═══════════════════════════ -->
+
+<h3>2-1. UI設計</h3>
+<div class="card">
+  <div class="f">┌────────────────────────────────────────────────────────┐
+│  予測一覧                              [ウェイト調整] │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  スコアリングウェイト調整パネル（右サイドまたはモーダル）  │
+│  ┌──────────────────────────────────────────┐          │
+│  │ カテゴリ            ウェイト    現在値    │          │
+│  │                                          │          │
+│  │ 馬齢              ──●────── 1.0x         │          │
+│  │ 直近成績           ────●──── 1.2x         │          │
+│  │ G1実績            ────●──── 1.2x         │          │
+│  │ 距離適性           ──●────── 1.0x         │          │
+│  │ 騎手力            ──●────── 1.0x         │          │
+│  │ 上がり3F          ──────●── 1.5x  ★UP   │          │
+│  │ スピード指数        ────●──── 1.2x         │          │
+│  │ 血統適性           ──●────── 1.0x         │          │
+│  │ YouTube/ニュース    ●──────── 0.5x  ★DOWN │          │
+│  │ 調教              ──●────── 1.0x         │          │
+│  │ 脚質              ──●────── 1.0x         │          │
+│  │                                          │          │
+│  │ [デフォルトに戻す] [プリセット▼]           │          │
+│  │   プリセット: 標準 / データ重視 /           │          │
+│  │              世論重視 / 血統重視            │          │
+│  └──────────────────────────────────────────┘          │
+│                                                        │
+│  ← テーブルがリアルタイムで再計算される                   │
+└────────────────────────────────────────────────────────┘</div>
+</div>
+
+<h3>2-2. バックエンド設計</h3>
+<div class="card">
+  <div class="f">POST /api/predictions?custom_weights=true
+Body:
+{
+  "weights": {
+    "age": 1.0,
+    "recent_form": 1.2,
+    "g1_record": 1.2,
+    "distance_aptitude": 1.0,
+    "jockey": 1.0,
+    "last_3f": 1.5,          // ユーザーが上げた
+    "speed_figure": 1.2,
+    "pedigree": 1.0,
+    "public_opinion": 0.5,   // ユーザーが下げた
+    "training": 1.0,
+    "running_style": 1.0,
+    "head_to_head": 1.0,
+    "rest": 1.0,
+    "trainer": 1.0,
+    "weight_trend": 1.0
+  },
+  "race_id": "takarazuka_2026"  // 汎用化後はレースIDを指定
+}</div>
+  <p>ルールベースの各カテゴリスコアに <code>weight[category]</code> を乗算するだけ。<br>計算はフロントエンドでも可能（全特徴量をAPIで取得済み → JSで再計算）。</p>
+
+  <div class="ok"><strong>フロントエンド計算が最速</strong>: 全馬の特徴量を1回APIで取得し、スライダー変更時にJSでスコア再計算 → サーバー往復ゼロでリアルタイム反映。</div>
+</div>
+
+<h3>2-3. プリセット</h3>
+<table>
+  <tr><th>プリセット名</th><th>特徴</th><th>上がり3F</th><th>G1実績</th><th>世論</th><th>血統</th></tr>
+  <tr><td>標準</td><td>全カテゴリ均等</td><td>1.0x</td><td>1.0x</td><td>1.0x</td><td>1.0x</td></tr>
+  <tr><td>データ重視</td><td>実績・能力値重視、世論を抑制</td><td>1.5x</td><td>1.3x</td><td>0.3x</td><td>1.0x</td></tr>
+  <tr><td>世論重視</td><td>YouTube/ニュース/調教を重視</td><td>0.8x</td><td>0.8x</td><td>1.5x</td><td>0.8x</td></tr>
+  <tr><td>血統重視</td><td>種牡馬適性を最重視</td><td>1.0x</td><td>0.8x</td><td>0.5x</td><td>2.0x</td></tr>
+  <tr><td>穴馬発掘</td><td>上がり3F+脚質+休養を重視</td><td>2.0x</td><td>0.5x</td><td>0.3x</td><td>1.2x</td></tr>
+</table>
+
+<!-- ═══════════════════════════ -->
+<h2>3. 改修B: 汎用レース対応</h2>
+<!-- ═══════════════════════════ -->
+
+<h3>3-1. データモデル変更</h3>
+<div class="card">
+  <div class="f">// レースマスタ（新規）
+interface Race {
+  id: string           // "takarazuka_2026", "arima_2026", etc.
+  name: string         // "宝塚記念"
+  date: string         // "2026-06-14"
+  venue: string        // "阪神"
+  distance: number     // 2200
+  surface: string      // "芝"
+  grade: string        // "G1"
+  course_type: string  // "右・内"
+
+  // レース固有の傾向パラメータ
+  trends: {
+    age_bias: Record&lt;number, number&gt;     // {4: 20, 5: 25, 6: 8}
+    style_bias: Record&lt;string, number&gt;   // {nige: 8, senko: 5, sashi: 2}
+    pace_tendency: string                 // "front_advantage" | "closer_advantage"
+    key_factors: string[]                 // ["last_3f", "stamina", "g1_record"]
+  }
+}
+
+// 各レースの傾向は過去データから自動計算 or 手動設定
+// 例: 有馬記念 → {4: 15, 5: 20, 6: 15} (6歳もそこそこ走る)
+//     宝塚記念 → {4: 20, 5: 25, 6: 8}  (5歳圧倒的)</div>
+</div>
+
+<h3>3-2. レース選択UI</h3>
+<div class="card">
+  <div class="f">┌─────────────────────────────────────────────────────┐
+│  競馬予想AI                                           │
+├─────────────────────────────────────────────────────┤
+│                                                       │
+│  レース選択:                                           │
+│  ┌──────────────────────────────────────────┐        │
+│  │ [宝塚記念 6/14] [CBC賞 7/6] [七夕賞 7/12] │        │
+│  │ [+ レースを追加]                           │        │
+│  └──────────────────────────────────────────┘        │
+│                                                       │
+│  ┌──────────────────────────────────────────┐        │
+│  │ 宝塚記念 2026                              │        │
+│  │ 阪神 芝2200m G1 | 6/14(日) 15:40          │        │
+│  │                                            │        │
+│  │ [予測一覧] [シミュレーション] [買い目最適化]  │        │
+│  │                                            │        │
+│  │ ┌────────────────────────────────────┐    │        │
+│  │ │  (現在と同じ中身)                    │    │        │
+│  │ └────────────────────────────────────┘    │        │
+│  └──────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────┘</div>
+</div>
+
+<h3>3-3. レース追加フロー</h3>
+<div class="card">
+  <ol style="padding-left:20px;font-size:.85rem">
+    <li><strong>レース基本情報入力</strong>: 名前・日付・競馬場・距離・芝/ダート・グレード</li>
+    <li><strong>出走馬入力</strong>: CSVアップロード or 手動入力 or netkeibaから自動取得（レースID入力）</li>
+    <li><strong>傾向パラメータ</strong>: 過去データから自動推定 or ユーザー手動設定
+      <ul>
+        <li>馬齢バイアス: 何歳が有利か</li>
+        <li>脚質バイアス: 前有利 or 差し有利</li>
+        <li>距離適性の重要度</li>
+        <li>重馬場の影響度</li>
+      </ul>
+    </li>
+    <li><strong>データ収集</strong>: 出走馬の戦績・騎手・調教を自動収集</li>
+    <li><strong>予測実行</strong>: 汎用スコアリング + レース固有バイアスで計算</li>
+  </ol>
+</div>
+
+<h3>3-4. 主要G1レースのプリセットパラメータ</h3>
+<table>
+  <tr><th>レース</th><th>距離</th><th>有利馬齢</th><th>脚質傾向</th><th>重要因子</th></tr>
+  <tr><td>宝塚記念</td><td>芝2200m</td><td>5歳>4歳</td><td>前有利</td><td>上がり3F, スタミナ, G1実績</td></tr>
+  <tr><td>有馬記念</td><td>芝2500m</td><td>4-5歳均等</td><td>先行〜差し</td><td>スタミナ, 中山適性, ファン投票</td></tr>
+  <tr><td>天皇賞秋</td><td>芝2000m</td><td>4歳>5歳</td><td>差し有利</td><td>上がり3F, スピード, 東京実績</td></tr>
+  <tr><td>天皇賞春</td><td>芝3200m</td><td>5歳</td><td>先行</td><td>スタミナ, 長距離血統</td></tr>
+  <tr><td>日本ダービー</td><td>芝2400m</td><td>3歳限定</td><td>差し有利</td><td>スピード, 上がり3F, 皐月賞成績</td></tr>
+  <tr><td>ジャパンC</td><td>芝2400m</td><td>3-5歳</td><td>差し有利</td><td>スピード指数, 国際実績</td></tr>
+  <tr><td>大阪杯</td><td>芝2000m</td><td>4-5歳</td><td>先行〜差し</td><td>阪神内回り適性, 機動力</td></tr>
+</table>
+
+<!-- ═══════════════════════════ -->
+<h2>4. 技術的な変更点</h2>
+<!-- ═══════════════════════════ -->
+
+<h3>4-1. ディレクトリ構成の変更</h3>
+<div class="f">keiba_ai/
+├── backend/
+│   ├── api/
+│   │   ├── predictions.py     // race_id パラメータ追加
+│   │   ├── races.py           // <span style="color:#7dd3fc">NEW: レースCRUD</span>
+│   │   └── ...
+│   ├── core/
+│   │   ├── predictor.py       // weights パラメータ追加
+│   │   ├── race_config.py     // <span style="color:#7dd3fc">NEW: レース傾向定義</span>
+│   │   └── ...
+│   └── data/
+│       ├── races/             // <span style="color:#7dd3fc">NEW: レースごとのデータディレクトリ</span>
+│       │   ├── takarazuka_2026/
+│       │   │   ├── entries.csv
+│       │   │   ├── horse_history.csv
+│       │   │   ├── extended_data.csv
+│       │   │   └── config.json    // レース固有パラメータ
+│       │   ├── arima_2026/
+│       │   └── ...
+│       └── common/            // 騎手データ等の共通データ
+│
+├── frontend/
+│   └── src/
+│       ├── pages/
+│       │   ├── RaceSelector.tsx      // <span style="color:#7dd3fc">NEW</span>
+│       │   ├── WeightAdjuster.tsx    // <span style="color:#7dd3fc">NEW</span>
+│       │   └── ...
+│       └── hooks/
+│           └── useScoring.ts         // <span style="color:#7dd3fc">NEW: フロントエンドスコア再計算</span></div>
+
+<h3>4-2. API変更</h3>
+<div class="f">// 既存APIにrace_idを追加
+GET  /api/races                          // レース一覧
+POST /api/races                          // レース追加
+GET  /api/races/{race_id}/predictions    // レース別予測
+GET  /api/races/{race_id}/features       // <span style="color:#7dd3fc">NEW: 全馬の特徴量生データ（フロントでスコア再計算用）</span>
+POST /api/races/{race_id}/simulate
+POST /api/races/{race_id}/betting/optimize
+
+// ウェイト調整
+POST /api/races/{race_id}/predictions/custom
+  Body: { weights: { age: 1.0, last_3f: 1.5, ... } }
+
+// レース設定
+GET  /api/races/{race_id}/config
+PUT  /api/races/{race_id}/config         // レース固有パラメータの更新</div>
+
+<!-- ═══════════════════════════ -->
+<h2>5. 実装ロードマップ</h2>
+<!-- ═══════════════════════════ -->
+
+<table>
+  <tr><th>Phase</th><th>内容</th><th>規模</th><th>依存</th></tr>
+  <tr><td><span class="tag tp">Phase 1</span></td><td><strong>ウェイト調整UI</strong><br>スライダー + プリセット + フロントエンドでリアルタイム再計算</td><td>中</td><td>なし</td></tr>
+  <tr><td><span class="tag tp">Phase 2</span></td><td><strong>データ構造の汎用化</strong><br>race_id導入、レースごとのデータディレクトリ分離、API変更</td><td>大</td><td>Phase 1</td></tr>
+  <tr><td><span class="tag tp">Phase 3</span></td><td><strong>レース追加UI</strong><br>レース作成フォーム、出走馬入力、傾向パラメータ設定</td><td>大</td><td>Phase 2</td></tr>
+  <tr><td><span class="tag tp">Phase 4</span></td><td><strong>G1プリセット</strong><br>主要7G1のパラメータプリセットを用意</td><td>小</td><td>Phase 3</td></tr>
+  <tr><td><span class="tag tp">Phase 5</span></td><td><strong>netkeiba連携強化</strong><br>レースIDから出走馬・戦績を自動取得</td><td>中</td><td>Phase 3</td></tr>
+</table>
+
+<div class="warn">
+  <strong>推奨</strong>: 宝塚記念（6/14）に間に合わせるなら、<strong>Phase 1（ウェイト調整UI）だけ先行実装</strong>し、Phase 2以降は宝塚記念後に着手するのが現実的。Phase 1は現在のコードにスライダーUIを追加するだけなので、数時間で完了する。
+</div>
+
+<!-- ═══════════════════════════ -->
+<h2>6. ウェイト調整のフロントエンド実装詳細</h2>
+<!-- ═══════════════════════════ -->
+
+<div class="card">
+  <h3>useScoring.ts（カスタムHook）</h3>
+  <div class="f">// 全馬の特徴量をAPIから1回取得
+const features = await fetch('/api/races/takarazuka_2026/features')
+
+// スライダー変更時にJSでスコア再計算（サーバー不要）
+function recalculate(features, weights) {
+  return features.map(horse => {
+    let score = 0
+    score += horse.age_score * weights.age
+    score += horse.recent_form_score * weights.recent_form
+    score += horse.g1_score * weights.g1_record
+    score += horse.last3f_score * weights.last_3f
+    score += horse.speed_score * weights.speed_figure
+    score += horse.yt_news_score * weights.public_opinion
+    // ... 23カテゴリ分
+    return { ...horse, total_score: score }
+  })
+  // → 正規化して確率に変換
+}</div>
+  <p>スライダーを動かすたびに <code>recalculate()</code> が走り、テーブルが即座に更新される。</p>
+</div>
+
+</div>
+<footer>競馬予想AI v2.0 設計書 | 2026-06-09</footer>
+</body>
+</html>
