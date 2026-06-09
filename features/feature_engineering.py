@@ -25,6 +25,7 @@ class FeatureEngineer:
         self.odds_data = None             # オッズデータ
         self.training_data = None         # 調教データ
         self.weather_data = None          # 天気予報
+        self.extended_data = None         # 拡張データ（上がり3F,脚質,血統詳細等）
 
     def load_data(self):
         """RAW_DIR からデータを読み込む"""
@@ -90,6 +91,11 @@ class FeatureEngineer:
         weather_path = os.path.join(RAW_DIR, "weather_forecast.csv")
         if os.path.exists(weather_path):
             self.weather_data = pd.read_csv(weather_path, encoding="utf-8-sig")
+
+        # 拡張データ（上がり3F, 脚質, 血統詳細, 対戦成績, スピード指数）
+        ext_path = os.path.join(RAW_DIR, "extended_horse_data.csv")
+        if os.path.exists(ext_path):
+            self.extended_data = pd.read_csv(ext_path, encoding="utf-8-sig")
 
         loaded = []
         loaded.append(f"馬 {len(self.horse_histories)}頭")
@@ -538,6 +544,53 @@ class FeatureEngineer:
         features.update(self.compute_news_features(horse_name))
         features.update(self.compute_odds_features(horse_name))
         features.update(self.compute_training_features(horse_name))
+        features.update(self.compute_extended_features(horse_name))
+
+        return features
+
+    # ────────────────────────────────────────
+    # 拡張特徴量（上がり3F, 脚質, 血統, 対戦, スピード指数）
+    # ────────────────────────────────────────
+    def compute_extended_features(self, horse_name: str) -> dict:
+        """拡張データから特徴量を生成"""
+        features = {
+            "best_last3f": 0.0,
+            "avg_last3f": 0.0,
+            "running_style_code": 0,
+            "sire_turf2200_winrate": 0.0,
+            "sire_hanshin_winrate": 0.0,
+            "sire_heavy_winrate": 0.0,
+            "head2head_winrate": 0.0,
+            "speed_figure": 0.0,
+            "rest_days": 0,
+            "rest_performance_code": 0,
+            "trainer_g1_wins_ext": 0,
+            "weight_trend_code": 0,
+        }
+        if self.extended_data is None or self.extended_data.empty:
+            return features
+
+        row = self.extended_data[self.extended_data["horse_name"] == horse_name]
+        if row.empty:
+            return features
+
+        r = row.iloc[0]
+        features["best_last3f"] = float(r.get("best_last3f", 0) or 0)
+        features["avg_last3f"] = float(r.get("avg_last3f", 0) or 0)
+        features["running_style_code"] = {"nige": 0, "senko": 1, "sashi": 2, "oikomi": 3}.get(str(r.get("running_style", "")), 1)
+        features["sire_turf2200_winrate"] = float(r.get("sire_turf2200_winrate", 0) or 0)
+        features["sire_hanshin_winrate"] = float(r.get("sire_hanshin_winrate", 0) or 0)
+        features["sire_heavy_winrate"] = float(r.get("sire_heavy_winrate", 0) or 0)
+
+        h2h_total = int(r.get("head2head_total", 0) or 0)
+        h2h_wins = int(r.get("head2head_wins", 0) or 0)
+        features["head2head_winrate"] = h2h_wins / max(h2h_total, 1)
+
+        features["speed_figure"] = float(r.get("speed_figure", 0) or 0)
+        features["rest_days"] = int(r.get("rest_days", 0) or 0)
+        features["rest_performance_code"] = {"good": 2, "ok": 1, "poor": 0}.get(str(r.get("rest_performance", "")), 1)
+        features["trainer_g1_wins_ext"] = int(r.get("trainer_g1_wins", 0) or 0)
+        features["weight_trend_code"] = {"stable": 2, "increasing": 1, "decreasing": 0}.get(str(r.get("weight_trend", "")), 1)
 
         return features
 

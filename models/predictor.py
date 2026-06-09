@@ -52,6 +52,12 @@ FEATURE_COLUMNS = [
     "win_odds", "odds_popularity", "odds_trend",
     # 調教
     "training_intensity", "training_time_score",
+    # 拡張データ
+    "best_last3f", "avg_last3f", "running_style_code",
+    "sire_turf2200_winrate", "sire_hanshin_winrate", "sire_heavy_winrate",
+    "head2head_winrate", "speed_figure",
+    "rest_days", "rest_performance_code",
+    "trainer_g1_wins_ext", "weight_trend_code",
 ]
 
 
@@ -316,7 +322,54 @@ class TakarazukaPredictor:
 
         # 15. 調教評価
         if "training_intensity" in fm.columns:
-            scores += (fm["training_intensity"] - 3) * 5  # 3が基準、5なら+10
+            scores += (fm["training_intensity"] - 3) * 5
+
+        # ═══ 拡張特徴量 ═══
+
+        # 16. 上がり3F（最重要: 宝塚記念で上がり最速馬は複勝率100%）
+        if "best_last3f" in fm.columns:
+            l3f = fm["best_last3f"]
+            valid = l3f[l3f > 30]
+            if len(valid) > 0:
+                scores += (37 - l3f.clip(32, 37)) * 5  # 33.0→20pt, 35.0→10pt, 36.0→5pt
+
+        # 17. スピード指数（能力の絶対値）
+        if "speed_figure" in fm.columns:
+            sf = fm["speed_figure"]
+            valid_sf = sf[sf > 0]
+            if len(valid_sf) > 0:
+                scores += (sf - 90).clip(0, 30) * 1.5  # 115→37.5pt, 100→15pt
+
+        # 18. 血統適性（種牡馬の芝2200m勝率）
+        if "sire_turf2200_winrate" in fm.columns:
+            scores += fm["sire_turf2200_winrate"] * 30  # 20%→6pt
+        if "sire_hanshin_winrate" in fm.columns:
+            scores += fm["sire_hanshin_winrate"] * 20
+        if "sire_heavy_winrate" in fm.columns:
+            # 馬場が重い場合に重馬場適性をボーナス
+            scores += fm["sire_heavy_winrate"] * 5
+
+        # 19. 対戦成績
+        if "head2head_winrate" in fm.columns:
+            scores += fm["head2head_winrate"] * 15
+
+        # 20. 脚質×展開（宝塚記念は前有利: 逃げ/先行にボーナス）
+        if "running_style_code" in fm.columns:
+            style_bonus = fm["running_style_code"].map({0: 8, 1: 5, 2: 2, 3: 0}).fillna(0)
+            scores += style_bonus
+
+        # 21. 休養明け適性
+        if "rest_performance_code" in fm.columns:
+            scores += fm["rest_performance_code"] * 3
+
+        # 22. 調教師G1実績
+        if "trainer_g1_wins_ext" in fm.columns:
+            import numpy as _np2
+            scores += _np2.log1p(fm["trainer_g1_wins_ext"]) * 3
+
+        # 23. 馬体重トレンド（安定が最良）
+        if "weight_trend_code" in fm.columns:
+            scores += fm["weight_trend_code"] * 2  # stable=4, increasing=2, decreasing=0
 
         # 正規化して確率に変換
         score_min = scores.min()
