@@ -181,36 +181,83 @@ def optimize_bets(predictions: list[dict], budget: int,
                 "expected_value": round(ev, 3), "kelly_fraction": kf,
             })
 
-    # ── フィルタリング: 期待値0.7以上 & ケリー正のもの ──
-    # ── 馬券種別ごとにEV上位を選出（必ず各種別から出す）──
+    # ── リスクレベル別の戦略 ──
+    # low:  的中率高い買い目中心、上位馬のみ、点数少なく厚く
+    # medium: バランス型
+    # high: 高配当狙い、穴馬含む、薄く広く
+    risk_config = {
+        "low": {
+            "horse_range": 3,     # 上位3頭中心
+            "max_bets": 5,        # 点数少なく
+            "prefer_types": ["win", "place", "wide"],
+            "weight_by": "hit_prob",  # 的中率重視
+            "top_heavy": 0.5,     # 本命に厚く（上位に50%集中）
+        },
+        "medium": {
+            "horse_range": 5,
+            "max_bets": 8,
+            "prefer_types": None,  # 全種別均等
+            "weight_by": "expected_value",
+            "top_heavy": 0.3,
+        },
+        "high": {
+            "horse_range": 7,
+            "max_bets": 12,
+            "prefer_types": ["quinella", "trio"],  # 高配当中心
+            "weight_by": "odds",  # 高オッズ重視
+            "top_heavy": 0.1,     # 均等に近い
+        },
+    }
+    rc = risk_config.get(risk_level, risk_config["medium"])
+
+    # ── 各種別からリスクに応じて選出 ──
     selected = []
-    types_requested = set(bet_types)
+    types_requested = list(set(bet_types))
+
     for bt in types_requested:
         bt_bets = [b for b in all_bets if b["bet_type"] == bt]
-        bt_bets.sort(key=lambda x: x["expected_value"], reverse=True)
-        max_per_type = max(2, 10 // len(types_requested))
-        selected.extend(bt_bets[:max_per_type])
 
-    # 重複排除してEV順ソート
+        # リスクに応じたソート
+        if rc["weight_by"] == "hit_prob":
+            bt_bets.sort(key=lambda x: x["hit_prob"], reverse=True)
+        elif rc["weight_by"] == "odds":
+            bt_bets.sort(key=lambda x: x["odds"], reverse=True)
+        else:
+            bt_bets.sort(key=lambda x: x["expected_value"], reverse=True)
+
+        # 優先種別でなければ少なく
+        if rc["prefer_types"] and bt not in [t for t in rc["prefer_types"] if t in bet_types]:
+            max_n = 1
+        else:
+            max_n = max(2, rc["max_bets"] // len(types_requested))
+
+        selected.extend(bt_bets[:max_n])
+
+    # 重複排除
     seen = set()
     unique = []
-    for b in sorted(selected, key=lambda x: x["expected_value"], reverse=True):
+    for b in selected:
         key = f"{b['bet_type']}:{b['selection']}"
         if key not in seen:
             seen.add(key)
             unique.append(b)
-    selected = unique[:12]
+    selected = unique[:rc["max_bets"]]
 
-    # ── 金額配分 ──
-    total_kelly = sum(b["kelly_fraction"] for b in selected)
-    if total_kelly > 0:
-        for b in selected:
-            raw = budget * (b["kelly_fraction"] / total_kelly)
-            b["amount"] = max(int(round(raw / 100) * 100), 100)
-    else:
-        per = max(int(budget / max(len(selected), 1) / 100) * 100, 100)
-        for b in selected:
-            b["amount"] = per
+    # ── 金額配分（リスクに応じた傾斜） ──
+    if not selected:
+        selected = sorted(all_bets, key=lambda x: x["expected_value"], reverse=True)[:4]
+
+    n = len(selected)
+    weights = []
+    for i in range(n):
+        # 上位ほど厚く（top_heavyが大きいほど傾斜が急）
+        w = 1.0 + rc["top_heavy"] * (n - i) / n
+        weights.append(w)
+
+    total_w = sum(weights)
+    for i, b in enumerate(selected):
+        raw = budget * (weights[i] / total_w)
+        b["amount"] = max(int(round(raw / 100) * 100), 100)
 
     # 予算超過の調整
     total = sum(b["amount"] for b in selected)
