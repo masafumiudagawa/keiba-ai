@@ -34,7 +34,8 @@ interface Horse {
 
 export default function PredictionTable({ raceId }: { raceId: string }) {
   const [features, setFeatures] = useState<Horse[]>([])
-  const [_config, setConfig] = useState<any>(null)
+  const [config, setConfig] = useState<any>(null)
+  const [weather, setWeather] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [weights, setWeights] = useState<Record<string, number>>(PRESETS.standard)
   const [showWeights, setShowWeights] = useState(false)
@@ -45,6 +46,7 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
     fetch(`/api/races/${raceId}/features`).then(r => r.json()).then(d => {
       setFeatures(d.features || [])
       setConfig(d.config || {})
+      setWeather(d.weather || null)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [raceId])
 
@@ -69,8 +71,37 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
   if (loading) return <div className="text-center py-20 text-slate-400">読み込み中...</div>
   if (!features.length) return <div className="text-center py-20 text-slate-400">出走馬データがありません</div>
 
+  const trackColor: Record<string,string> = { '良': 'text-emerald-600', '稍重': 'text-amber-600', '重': 'text-orange-600', '不良': 'text-red-600' }
+
   return (
     <div>
+      {/* Race Info + Weather */}
+      {(config || weather) && (
+        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-3 mb-4 text-white shadow">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 items-center text-xs sm:text-sm">
+            {config?.grade && <span className="bg-red-600 px-2 py-0.5 rounded-full text-xs font-bold">{config.grade}</span>}
+            {config?.name && <span className="font-bold">{config.name}</span>}
+            {config?.venue && <span className="text-blue-200">{config.venue} {config.surface}{config.distance}m</span>}
+            {config?.date && <span className="text-blue-200">{config.date}</span>}
+            {config?.post_time && <span className="text-blue-200">{config.post_time}発走</span>}
+          </div>
+          {weather?.forecast && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-blue-100 items-center">
+              <span>天気: <strong className="text-white">{weather.forecast}</strong></span>
+              {weather.temperature_low != null && <span>{weather.temperature_low}〜{weather.temperature_high}℃</span>}
+              {weather.precipitation_mm != null && <span>降水: {weather.precipitation_mm}mm</span>}
+              {weather.precipitation_probability != null && <span>確率: {weather.precipitation_probability}%</span>}
+              {weather.predicted_track_condition && (
+                <span>馬場予測: <strong className={`${trackColor[weather.predicted_track_condition] || 'text-white'} bg-white/20 px-1.5 py-0.5 rounded`}>
+                  {weather.predicted_track_condition}
+                </strong></span>
+              )}
+              {weather.fetched_at && <span className="text-blue-300 text-[10px]">({weather.fetched_at} 更新)</span>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Weight Toggle */}
       <div className="mb-4">
         <button onClick={() => setShowWeights(!showWeights)}
@@ -117,9 +148,11 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
               <th className="px-3 py-2 text-left">#</th><th className="px-3 py-2">印</th>
               <th className="px-3 py-2 text-left">馬名</th><th className="px-3 py-2 text-left">騎手</th>
               <th className="px-3 py-2 text-right">勝率</th><th className="px-3 py-2 text-right">AI指数</th>
-              <th className="px-3 py-2 text-right" title="上がり3ハロン（ラスト600mのタイム）">上がり</th>
-              <th className="px-3 py-2 text-right" title="スピード指数（能力値）">能力値</th>
-              <th className="px-3 py-2 text-right" title="G1レース勝利数">G1勝</th><th className="px-3 py-2"></th>
+              <th className="px-3 py-2 text-right">上がり</th>
+              <th className="px-3 py-2 text-right">能力値</th>
+              <th className="px-3 py-2 text-right">G1勝</th>
+              <th className="px-3 py-2 text-right">オッズ</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -146,13 +179,14 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
                   <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">{h.raw.best_last3f || '-'}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">{h.raw.speed_figure || '-'}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">{h.raw.g1_wins || 0}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-slate-500">{h.raw.win_odds ? `${h.raw.win_odds}倍` : '-'}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => setExpandedRow(expandedRow === h.horse_name ? null : h.horse_name)}
                       className="text-slate-400 hover:text-blue-600 text-xs">{expandedRow === h.horse_name ? '▼' : '▶'}</button>
                   </td>
                 </tr>
                 {expandedRow === h.horse_name && (
-                  <tr className="bg-slate-50"><td colSpan={10} className="px-4 py-3">
+                  <tr className="bg-slate-50"><td colSpan={11} className="px-4 py-3">
                     <div className="grid grid-cols-3 gap-2 text-xs mb-2">
                       <div><span className="text-slate-400">戦績:</span> {h.career}</div>
                       <div><span className="text-slate-400">父:</span> {h.sire}</div>
@@ -198,7 +232,9 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
               </div>
               <div className="text-right shrink-0">
                 <div className="font-mono font-bold text-sm">{(h.prob * 100).toFixed(1)}%</div>
-                <div className="text-[10px] text-slate-400">3F:{h.raw.best_last3f} SP:{h.raw.speed_figure}</div>
+                <div className="text-[10px] text-slate-400">
+                  {h.raw.win_odds ? `${h.raw.win_odds}倍` : ''} {h.raw.best_last3f ? `3F:${h.raw.best_last3f}` : ''}
+                </div>
               </div>
             </div>
             <div className="mt-1.5 bg-slate-200 rounded-full h-1.5">

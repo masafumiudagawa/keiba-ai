@@ -241,4 +241,6 @@ def get_features(race_id: str):
         }
         horses.append(horse)
 
-    return {"features": horses, "config": config}
+    weather_info = weather.iloc[-1].to_dict() if not weather.empty else {}
+
+    return {"features": horses, "config": config, "weather": weather_info}
