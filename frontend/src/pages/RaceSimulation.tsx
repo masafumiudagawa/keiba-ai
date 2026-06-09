@@ -19,8 +19,8 @@ export default function RaceSimulation() {
     try {
       const res = await fetch('/api/simulate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_simulations: 500, track_condition: '良' }),
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ num_simulations: 500, track_condition: 'good' }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setData(await res.json())

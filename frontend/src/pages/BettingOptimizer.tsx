@@ -25,7 +25,7 @@ export default function BettingOptimizer() {
     try {
       const res = await fetch('/api/betting/optimize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ budget, risk_level: risk, bet_types: betTypes, odds: {}, excluded_horses: [] }),
       })
       setResult(await res.json())

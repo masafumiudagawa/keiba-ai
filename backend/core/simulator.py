@@ -74,7 +74,9 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
     n_checkpoints = len(CHECKPOINTS)
 
     # 馬場補正
-    condition_factor = {"良": 1.0, "稍重": 0.99, "重": 0.97, "不良": 0.95}.get(track_condition, 1.0)
+    condition_map = {"良": 1.0, "稍重": 0.99, "重": 0.97, "不良": 0.95,
+                     "good": 1.0, "slightly_heavy": 0.99, "heavy": 0.97, "bad": 0.95}
+    condition_factor = condition_map.get(track_condition, 1.0)
 
     # 各馬のパラメータ設定
     horse_params = []
