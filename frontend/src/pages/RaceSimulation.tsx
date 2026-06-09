@@ -3,7 +3,7 @@ import type { SimulationResponse } from '../types'
 
 const GATE_COLORS = ['#ffffff','#111111','#dc2626','#2563eb','#eab308','#16a34a','#ea580c','#db2777']
 
-export default function RaceSimulation({ raceId: _raceId }: { raceId: string }) {
+export default function RaceSimulation({ raceId }: { raceId: string }) {
   const [data, setData] = useState<SimulationResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -20,7 +20,7 @@ export default function RaceSimulation({ raceId: _raceId }: { raceId: string }) 
       const res = await fetch('/api/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({ num_simulations: 500, track_condition: 'good' }),
+        body: JSON.stringify({ num_simulations: 500, track_condition: 'good', race_id: raceId }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setData(await res.json())

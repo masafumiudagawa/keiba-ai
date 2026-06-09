@@ -6,27 +6,39 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 import pandas as pd
 
-from config.settings import RAW_DIR, REGISTERED_HORSES_2026
 from backend.core.simulator import simulate_race
 
 router = APIRouter()
 
+RACES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "races")
+
 
 class SimulationRequest(BaseModel):
-    num_simulations: int = 1000
-    track_condition: str = "良"
-    pace_scenario: str = "auto"
+    num_simulations: int = 500
+    track_condition: str = "good"
+    race_id: str = "takarazuka_2026"
 
 
 @router.post("/simulate")
 def run_simulation(req: SimulationRequest):
-    entries_path = os.path.join(RAW_DIR, "thursday_entries.csv")
+    # race_idからエントリーを読み込む
+    race_dir = os.path.join(RACES_DIR, req.race_id)
+    entries_path = os.path.join(race_dir, "entries.csv")
+
     if os.path.exists(entries_path):
         df = pd.read_csv(entries_path, encoding="utf-8-sig")
         df = df.dropna(subset=["horse_name"])
         horses = df.to_dict("records")
     else:
-        horses = REGISTERED_HORSES_2026
+        # フォールバック: 旧パス
+        from config.settings import RAW_DIR
+        fallback = os.path.join(RAW_DIR, "thursday_entries.csv")
+        if os.path.exists(fallback):
+            df = pd.read_csv(fallback, encoding="utf-8-sig")
+            df = df.dropna(subset=["horse_name"])
+            horses = df.to_dict("records")
+        else:
+            return {"error": "No entries found"}
 
     result = simulate_race(
         horses=horses,

@@ -17,7 +17,7 @@ const MODES = [
 ] as const
 type Mode = typeof MODES[number]['id']
 
-export default function BettingOptimizer({ raceId: _raceId }: { raceId: string }) {
+export default function BettingOptimizer({ raceId }: { raceId: string }) {
   const [mode, setMode] = useState<Mode>('compare')
   const [horses, setHorses] = useState<string[]>([])
   const [budget, setBudget] = useState(10000)
@@ -36,10 +36,10 @@ export default function BettingOptimizer({ raceId: _raceId }: { raceId: string }
   const [simResult, setSimResult] = useState<any>(null)
 
   useEffect(() => {
-    fetch('/api/predictions').then(r=>r.json()).then((d:PredictionResponse)=>{
-      setHorses(d.predictions.map(p=>p.horse_name))
+    fetch(`/api/races/${raceId}/features`).then(r=>r.json()).then((d:any)=>{
+      setHorses((d.features||[]).map((f:any)=>f.horse_name))
     }).catch(()=>{})
-  }, [])
+  }, [raceId])
 
   const toggle = (list:string[], item:string) => list.includes(item) ? list.filter(x=>x!==item) : [...list,item]
   const post = async (url:string, body:any) => {
@@ -47,8 +47,8 @@ export default function BettingOptimizer({ raceId: _raceId }: { raceId: string }
     return r.json()
   }
 
-  const runCompare = async () => { setLoading(true); try { setCompareResult(await post('/api/betting/compare', {budget, bet_types:betTypes, odds:{}, excluded_horses:[]})) } finally { setLoading(false) } }
-  const runOptimize = async () => { setLoading(true); try { setResult(await post('/api/betting/optimize', {budget, risk_level:risk, bet_types:betTypes, odds:{}, excluded_horses:[], pivot_horses: mode==='pivot' ? pivotHorses : []})) } finally { setLoading(false) } }
+  const runCompare = async () => { setLoading(true); try { setCompareResult(await post('/api/betting/compare', {budget, bet_types:betTypes, odds:{}, excluded_horses:[], race_id:raceId})) } finally { setLoading(false) } }
+  const runOptimize = async () => { setLoading(true); try { setResult(await post('/api/betting/optimize', {budget, risk_level:risk, bet_types:betTypes, odds:{}, excluded_horses:[], pivot_horses: mode==='pivot' ? pivotHorses : [], race_id:raceId})) } finally { setLoading(false) } }
   const runFormation = async () => { setLoading(true); try { setFormationResult(await post('/api/betting/formation', {bet_type:'trio',...formation,amount_per_bet:100})) } finally { setLoading(false) } }
   const runBox = async () => { setLoading(true); try { setBoxResult(await post('/api/betting/box', {bet_type:boxBetType,horses:boxHorses,amount_per_bet:100})) } finally { setLoading(false) } }
   const runSim = async () => {

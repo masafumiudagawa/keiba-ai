@@ -19,7 +19,8 @@ class OptimizeRequest(BaseModel):
     bet_types: list[str] = ["win", "quinella", "wide", "trio"]
     odds: dict = {}
     excluded_horses: list[str] = []
-    pivot_horses: list[str] = []  # 軸馬
+    pivot_horses: list[str] = []
+    race_id: str = "takarazuka_2026"
 
 
 class FormationRequest(BaseModel):
@@ -52,9 +53,35 @@ def _add_payout(result: dict) -> dict:
     return result
 
 
+def _get_predictions(race_id: str):
+    """raceIdから予測データを取得"""
+    try:
+        from backend.api.races import get_features
+        data = get_features(race_id)
+        preds = []
+        features = data.get("features", [])
+        # スコア合計から確率を算出
+        totals = [sum(h["scores"].values()) for h in features]
+        min_t = min(totals) if totals else 0
+        max_t = max(totals) if totals else 1
+        rng = max_t - min_t or 1
+        prob_sum = sum((t - min_t) / rng for t in totals) or 1
+        for h, t in zip(features, totals):
+            prob = ((t - min_t) / rng) / prob_sum
+            preds.append({
+                "horse_name": h["horse_name"],
+                "win_probability": prob,
+                "place_probability": min(prob * 2.5, 0.9),
+            })
+        return preds
+    except Exception:
+        predictions, _ = _build_predictions()
+        return predictions
+
+
 @router.post("/betting/optimize")
 def optimize(req: OptimizeRequest):
-    predictions, _ = _build_predictions()
+    predictions = _get_predictions(req.race_id)
 
     if req.pivot_horses:
         return _add_payout(_pivot_optimize(predictions, req))
@@ -74,7 +101,7 @@ def optimize(req: OptimizeRequest):
 @router.post("/betting/compare")
 def compare(req: OptimizeRequest):
     """低/中/高の3パターンを一括で返す"""
-    predictions, _ = _build_predictions()
+    predictions = _get_predictions(req.race_id)
     patterns = {}
     for risk in ["low", "medium", "high"]:
         r = optimize_bets(

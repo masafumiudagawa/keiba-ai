@@ -17,7 +17,7 @@ export default function App() {
   const [races, setRaces] = useState<RaceInfo[]>([])
   const [activeRace, setActiveRace] = useState<string>('takarazuka_2026')
   const [showAddRace, setShowAddRace] = useState(false)
-  const [newRace, setNewRace] = useState({ id: '', name: '', date: '', venue: '', distance: 2000, surface: '芝', grade: 'G1' })
+  const [newRace, setNewRace] = useState({ name: '', date: '', venue: '', distance: 2000, surface: '芝', grade: 'G1' })
 
   useEffect(() => {
     fetch('/api/races').then(r => r.json()).then(d => {
@@ -31,18 +31,21 @@ export default function App() {
   const currentRace = races.find(r => r.id === activeRace)
 
   const addRace = async () => {
-    if (!newRace.id || !newRace.name) return
+    if (!newRace.name) return
+    // IDを自動生成: レース名+年 → ローマ字化
+    const autoId = (newRace.name + '_' + (newRace.date?.slice(0, 4) || '2026'))
+      .replace(/[^a-zA-Z0-9\u3040-\u9fff]/g, '_').toLowerCase()
     await fetch('/api/races', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ ...newRace, trends: {} }),
+      body: JSON.stringify({ ...newRace, id: autoId, trends: {} }),
     })
     const res = await fetch('/api/races')
     const d = await res.json()
     setRaces(d.races || [])
-    setActiveRace(newRace.id)
+    setActiveRace(autoId)
     setShowAddRace(false)
-    setNewRace({ id: '', name: '', date: '', venue: '', distance: 2000, surface: '芝', grade: 'G1' })
+    setNewRace({ name: '', date: '', venue: '', distance: 2000, surface: '芝', grade: 'G1' })
   }
 
   return (
@@ -78,9 +81,7 @@ export default function App() {
           {/* Add Race Form */}
           {showAddRace && (
             <div className="mt-2 bg-white/10 rounded-lg p-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <input placeholder="ID (例: arima_2026)" value={newRace.id} onChange={e => setNewRace({ ...newRace, id: e.target.value })}
-                className="bg-white/20 rounded px-2 py-1 text-xs text-white placeholder-white/50" />
-              <input placeholder="レース名" value={newRace.name} onChange={e => setNewRace({ ...newRace, name: e.target.value })}
+              <input placeholder="レース名（例: 有馬記念）" value={newRace.name} onChange={e => setNewRace({ ...newRace, name: e.target.value })}
                 className="bg-white/20 rounded px-2 py-1 text-xs text-white placeholder-white/50" />
               <input type="date" value={newRace.date} onChange={e => setNewRace({ ...newRace, date: e.target.value })}
                 className="bg-white/20 rounded px-2 py-1 text-xs text-white" />
