@@ -145,6 +145,8 @@ def get_features(race_id: str):
     youtube = _load_csv(race_id, "youtube.csv")
     news = _load_csv(race_id, "news.csv")
     training = _load_csv(race_id, "training.csv")
+    odds_df = _load_csv(race_id, "odds.csv")
+    weather = _load_csv(race_id, "weather.csv")
 
     trends = config.get("trends", {})
     age_bias = trends.get("age_bias", {"4": 20, "5": 25, "6": 8})
@@ -233,6 +235,8 @@ def get_features(race_id: str):
                 "training": train_val,
                 "last_1_finish": last1,
                 "last_2_finish": last2,
+                "win_odds": float(odds_df[odds_df["horse_name"].str.strip() == name.strip()].iloc[0].get("win_odds", 0)) if not odds_df.empty and name.strip() in odds_df["horse_name"].str.strip().values else 0,
+                "popularity": int(odds_df[odds_df["horse_name"].str.strip() == name.strip()].iloc[0].get("popularity", 0)) if not odds_df.empty and name.strip() in odds_df["horse_name"].str.strip().values else 0,
             },
         }
         horses.append(horse)
