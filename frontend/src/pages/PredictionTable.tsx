@@ -72,34 +72,35 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
   return (
     <div>
       {/* Weight Toggle */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="mb-4">
         <button onClick={() => setShowWeights(!showWeights)}
           className={`px-4 py-2 rounded-lg text-sm font-medium border ${showWeights ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-200'}`}>
           ⚙ ウェイト調整 {showWeights ? '▲' : '▼'}
         </button>
-        {showWeights && (
-          <div className="flex gap-1.5 overflow-x-auto">
+      </div>
+
+      {/* Weight Panel */}
+      {showWeights && (
+        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 shadow-sm">
+          {/* Presets */}
+          <div className="flex flex-wrap gap-1.5 mb-3 pb-3 border-b border-slate-100">
+            <span className="text-xs text-slate-400 w-full mb-1">プリセット:</span>
             {[['standard', '標準'], ['data_focused', 'データ重視'], ['public_focused', '世論重視'], ['pedigree_focused', '血統重視'], ['upset_hunter', '穴馬発掘']].map(([k, l]) => (
               <button key={k} onClick={() => setWeights(PRESETS[k])}
-                className="px-2.5 py-1 rounded text-xs font-medium bg-white border border-slate-200 hover:bg-blue-50 whitespace-nowrap">
+                className="px-2.5 py-1 rounded text-xs font-medium bg-slate-50 border border-slate-200 hover:bg-blue-50 active:bg-blue-100">
                 {l}
               </button>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Weight Sliders */}
-      {showWeights && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
+          {/* Sliders */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {WEIGHT_CATEGORIES.map(cat => (
-              <div key={cat.key} className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 w-20 shrink-0">{cat.label}</span>
+              <div key={cat.key} className="flex items-center gap-2 py-0.5">
+                <span className="text-xs text-slate-500 w-16 sm:w-20 shrink-0 truncate">{cat.label}</span>
                 <input type="range" min="0" max="2" step="0.1" value={weights[cat.key] ?? 1}
                   onChange={e => setWeights({ ...weights, [cat.key]: parseFloat(e.target.value) })}
-                  className="flex-1 h-1.5 accent-blue-600" />
-                <span className={`text-xs font-mono w-8 text-right ${(weights[cat.key] ?? 1) !== 1 ? 'text-blue-700 font-bold' : 'text-slate-400'}`}>
+                  className="flex-1 h-2 accent-blue-600" />
+                <span className={`text-xs font-mono w-7 text-right ${(weights[cat.key] ?? 1) !== 1 ? 'text-blue-700 font-bold' : 'text-slate-400'}`}>
                   {(weights[cat.key] ?? 1).toFixed(1)}
                 </span>
               </div>
