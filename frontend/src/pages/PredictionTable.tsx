@@ -116,8 +116,9 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
               <th className="px-3 py-2 text-left">#</th><th className="px-3 py-2">印</th>
               <th className="px-3 py-2 text-left">馬名</th><th className="px-3 py-2 text-left">騎手</th>
               <th className="px-3 py-2 text-right">勝率</th><th className="px-3 py-2 text-right">AI指数</th>
-              <th className="px-3 py-2 text-right">3F</th><th className="px-3 py-2 text-right">SP</th>
-              <th className="px-3 py-2 text-right">G1</th><th className="px-3 py-2"></th>
+              <th className="px-3 py-2 text-right" title="上がり3ハロン（ラスト600mのタイム）">上がり</th>
+              <th className="px-3 py-2 text-right" title="スピード指数（能力値）">能力値</th>
+              <th className="px-3 py-2 text-right" title="G1レース勝利数">G1勝</th><th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
