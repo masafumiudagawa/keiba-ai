@@ -3,7 +3,7 @@ import type { SimulationResponse } from '../types'
 
 const GATE_COLORS = ['#ffffff','#111111','#dc2626','#2563eb','#eab308','#16a34a','#ea580c','#db2777']
 
-export default function RaceSimulation({ raceId }: { raceId: string }) {
+export default function RaceSimulation({ raceId: _raceId }: { raceId: string }) {
   const [data, setData] = useState<SimulationResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [playing, setPlaying] = useState(false)

@@ -34,7 +34,7 @@ interface Horse {
 
 export default function PredictionTable({ raceId }: { raceId: string }) {
   const [features, setFeatures] = useState<Horse[]>([])
-  const [config, setConfig] = useState<any>(null)
+  const [_config, setConfig] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [weights, setWeights] = useState<Record<string, number>>(PRESETS.standard)
   const [showWeights, setShowWeights] = useState(false)
