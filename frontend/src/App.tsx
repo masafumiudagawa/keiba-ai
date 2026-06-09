@@ -15,19 +15,24 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('prediction')
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-5">
-          <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-rose-600">KEIBA</span> <span className="text-gray-700">AI</span>
-          </h1>
-          <p className="text-gray-500 mt-1">
-            宝塚記念 2026 | 阪神 芝2200m | 6/14(日) 15:40
-          </p>
+    <div className="min-h-screen bg-slate-100 text-slate-800">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-slate-800 via-blue-900 to-indigo-900 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-5 flex items-center gap-4">
+          <div className="text-4xl">🐴</div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              競馬予想AI
+            </h1>
+            <p className="text-blue-200 text-sm mt-0.5">
+              宝塚記念 2026 | 阪神 芝2200m | 6/14(日) 15:40
+            </p>
+          </div>
         </div>
       </header>
 
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      {/* Tab Navigation */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 flex gap-1">
           {TABS.map((tab) => (
             <button
@@ -35,8 +40,8 @@ export default function App() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === tab.id
-                  ? 'border-rose-500 text-rose-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
               <span className="mr-2">{tab.icon}</span>
@@ -46,6 +51,7 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Main */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeTab === 'prediction' && <PredictionTable />}
         {activeTab === 'simulation' && <RaceSimulation />}

@@ -155,63 +155,63 @@ export default function RaceSimulation() {
     <div>
       <div className="flex items-center gap-4 mb-6">
         <button onClick={runSimulation} disabled={loading}
-          className="bg-rose-600 hover:bg-rose-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-medium">
+          className="bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 text-white px-6 py-2 rounded-lg font-medium">
           {loading ? 'シミュレーション中...' : 'シミュレーション実行 (1000回)'}
         </button>
       </div>
 
       {data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="lg:col-span-2 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
             <canvas ref={canvasRef} width={700} height={450} className="w-full rounded-lg" />
             <div className="flex items-center gap-3 mt-4">
               <button onClick={() => setPlaying(!playing)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-medium border border-gray-300">
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded text-sm font-medium border border-slate-300">
                 {playing ? '⏸ 一時停止' : '▶ 再生'}
               </button>
               <button onClick={() => { setProgress(0); setPlaying(false) }}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-medium border border-gray-300">
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded text-sm font-medium border border-slate-300">
                 ⏮ 最初から
               </button>
               {[1, 2, 4].map((s) => (
                 <button key={s} onClick={() => setSpeed(s)}
-                  className={`px-3 py-1 rounded text-sm font-medium border ${speed === s ? 'bg-rose-600 text-white border-rose-600' : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'}`}>
+                  className={`px-3 py-1 rounded text-sm font-medium border ${speed === s ? 'bg-blue-700 text-white border-rose-600' : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'}`}>
                   {s}x
                 </button>
               ))}
-              <div className="flex-1 bg-gray-200 rounded-full h-2 cursor-pointer"
+              <div className="flex-1 bg-slate-200 rounded-full h-2 cursor-pointer"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   setProgress((e.clientX - rect.left) / rect.width)
                   setPlaying(false)
                 }}>
-                <div className="bg-rose-500 h-2 rounded-full transition-none" style={{ width: `${progress * 100}%` }} />
+                <div className="bg-blue-600 h-2 rounded-full transition-none" style={{ width: `${progress * 100}%` }} />
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-500 mb-3">着順 (シミュレーション結果)</h3>
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-500 mb-3">着順 (シミュレーション結果)</h3>
               <div className="space-y-1">
                 {data.representative_race.horses.map((h, i) => (
-                  <div key={h.horse_name} className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${i < 3 ? 'bg-rose-50' : ''}`}>
-                    <span className={`w-6 font-bold ${i === 0 ? 'text-rose-600' : i < 3 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div key={h.horse_name} className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${i < 3 ? 'bg-blue-50' : ''}`}>
+                    <span className={`w-6 font-bold ${i === 0 ? 'text-red-600' : i < 3 ? 'text-blue-600' : 'text-slate-400'}`}>
                       {h.finish_position}
                     </span>
-                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border border-gray-300"
+                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border border-slate-300"
                       style={{ backgroundColor: h.color, color: h.color === '#000000' || h.color === '#e74c3c' ? '#fff' : '#000' }}>
                       {h.gate_number}
                     </span>
-                    <span className="flex-1 truncate text-gray-800">{h.horse_name}</span>
-                    <span className="text-gray-400 font-mono text-xs">{h.finish_time}</span>
+                    <span className="flex-1 truncate text-slate-800">{h.horse_name}</span>
+                    <span className="text-slate-400 font-mono text-xs">{h.finish_time}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-500 mb-3">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-500 mb-3">
                 1着回数 / {data.summary.num_simulations}回
               </h3>
               {Object.entries(data.summary.win_counts)
@@ -219,22 +219,22 @@ export default function RaceSimulation() {
                 .slice(0, 8)
                 .map(([name, count]) => (
                   <div key={name} className="flex items-center gap-2 text-sm py-1">
-                    <span className="w-28 truncate text-gray-700">{name}</span>
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div className="bg-rose-500 h-2 rounded-full"
+                    <span className="w-28 truncate text-slate-700">{name}</span>
+                    <div className="flex-1 bg-slate-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full"
                         style={{ width: `${(count / data.summary.num_simulations) * 400}%` }} />
                     </div>
-                    <span className="w-16 text-right font-mono text-xs text-gray-500">{count}回 ({((count / data.summary.num_simulations) * 100).toFixed(1)}%)</span>
+                    <span className="w-16 text-right font-mono text-xs text-slate-500">{count}回 ({((count / data.summary.num_simulations) * 100).toFixed(1)}%)</span>
                   </div>
                 ))}
             </div>
 
-            <div className="bg-white rounded-xl p-4 text-sm shadow-sm border border-gray-200">
-              <h3 className="text-gray-500 font-semibold mb-2">ペース</h3>
-              <div className="flex gap-4 text-gray-700">
+            <div className="bg-white rounded-xl p-4 text-sm shadow-sm border border-slate-200">
+              <h3 className="text-slate-500 font-semibold mb-2">ペース</h3>
+              <div className="flex gap-4 text-slate-700">
                 <div>前半1000m: <span className="font-mono font-bold">{data.representative_race.pace.first_1000m}秒</span></div>
                 <div>上がり3F: <span className="font-mono font-bold">{data.representative_race.pace.last_600m}秒</span></div>
-                <div className={`font-bold ${data.representative_race.pace.type === 'H' ? 'text-rose-600' : data.representative_race.pace.type === 'S' ? 'text-blue-600' : 'text-emerald-600'}`}>
+                <div className={`font-bold ${data.representative_race.pace.type === 'H' ? 'text-red-600' : data.representative_race.pace.type === 'S' ? 'text-blue-600' : 'text-emerald-600'}`}>
                   {data.representative_race.pace.type === 'H' ? 'ハイペース' : data.representative_race.pace.type === 'S' ? 'スローペース' : 'ミドル'}
                 </div>
               </div>
@@ -244,7 +244,7 @@ export default function RaceSimulation() {
       )}
 
       {!data && !loading && (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-slate-400">
           「シミュレーション実行」ボタンを押してレース展開を生成してください
         </div>
       )}
