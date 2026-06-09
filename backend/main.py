@@ -16,6 +16,7 @@ from backend.api.predictions import router as predictions_router
 from backend.api.simulation import router as simulation_router
 from backend.api.betting import router as betting_router
 from backend.api.data_status import router as status_router
+from backend.api.races import router as races_router
 
 app = FastAPI(title="KEIBA AI", version="1.0.0")
 
@@ -31,6 +32,7 @@ app.include_router(predictions_router, prefix="/api")
 app.include_router(simulation_router, prefix="/api")
 app.include_router(betting_router, prefix="/api")
 app.include_router(status_router, prefix="/api")
+app.include_router(races_router, prefix="/api")
 
 
 @app.get("/api/health")

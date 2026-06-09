@@ -17,7 +17,7 @@ const MODES = [
 ] as const
 type Mode = typeof MODES[number]['id']
 
-export default function BettingOptimizer() {
+export default function BettingOptimizer({ raceId }: { raceId: string }) {
   const [mode, setMode] = useState<Mode>('compare')
   const [horses, setHorses] = useState<string[]>([])
   const [budget, setBudget] = useState(10000)

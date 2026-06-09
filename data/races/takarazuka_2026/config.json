@@ -1,0 +1,17 @@
+{
+  "id": "takarazuka_2026",
+  "name": "宝塚記念",
+  "date": "2026-06-14",
+  "venue": "阪神",
+  "distance": 2200,
+  "surface": "芝",
+  "grade": "G1",
+  "course_type": "右・内",
+  "post_time": "15:40",
+  "trends": {
+    "age_bias": {"3": 0, "4": 20, "5": 25, "6": 8, "7": 3, "8": 2},
+    "style_bias": {"nige": 8, "senko": 5, "sashi": 2, "oikomi": 0},
+    "pace_tendency": "front_advantage",
+    "key_factors": ["last_3f", "g1_record", "stamina"]
+  }
+}
