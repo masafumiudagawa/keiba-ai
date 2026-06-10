@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from itertools import combinations
 import pandas as pd
 
-from backend.core.optimizer import optimize_value_bets, _combo_odds_from_singles
+from backend.core.optimizer import optimize_value_bets, build_value_analysis, _combo_odds_from_singles
 
 router = APIRouter()
 
@@ -254,21 +254,7 @@ def _pivot_optimize(horses, actual_odds, req):
     total_amount = sum(b.get("amount", 0) for b in recommendations)
     expected_return = sum(b.get("amount", 0) * b.get("expected_value", 0) for b in recommendations)
 
-    # バリュー分析も返す
-    value_analysis = []
-    for h in horses:
-        name = h["horse_name"]
-        ai_p = h["ai_win_prob"]
-        mo = actual_odds.get(name, 0)
-        mp = (1.0 / mo) if mo > 0 else 0
-        ev = ai_p * mo if mo > 0 else 0
-        value_analysis.append({
-            "horse_name": name, "ai_win_prob": round(ai_p, 4),
-            "market_odds": mo, "market_prob": round(mp, 4),
-            "expected_value": round(ev, 3), "prob_gap": round(ai_p - mp, 4),
-            "verdict": "BUY" if ev > 1.0 else "WATCH" if ev > 0.8 else "FADE",
-        })
-    value_analysis.sort(key=lambda x: x["expected_value"], reverse=True)
+    value_analysis = build_value_analysis(horses, actual_odds)
 
     return {
         "recommendations": recommendations,

@@ -17,7 +17,7 @@ const MODES = [
 ] as const
 type Mode = typeof MODES[number]['id']
 
-interface ValueItem { horse_name:string; ai_win_prob:number; ai_place_prob?:number; market_odds:number; market_prob:number; expected_value:number; prob_gap:number; verdict:string }
+interface ValueItem { horse_name:string; ai_win_prob:number; ai_place_prob?:number; ai_rank:number; market_odds:number; market_prob:number; market_rank:number; rank_diff:number; value_ratio:number; expected_value:number; verdict:string }
 interface BetRec { bet_type:string; bet_type_ja:string; selection:string; amount:number; odds:number; hit_prob:number; expected_value:number; payout?:number; kelly?:number }
 interface OptResult { recommendations:BetRec[]; value_analysis:ValueItem[]; total_budget:number; expected_return:number; expected_roi:number; has_real_odds:boolean; risk_metrics:{worst_case:number;best_case:number;value_bet_count:number}; label?:string }
 
@@ -81,52 +81,65 @@ export default function BettingOptimizer({ raceId }: { raceId: string }) {
     </div>
   )
 
+  const VERDICT_STYLE: Record<string, {bg:string; text:string; label:string}> = {
+    STRONG_BUY: {bg:'bg-emerald-100', text:'text-emerald-700', label:'狙い目'},
+    BUY: {bg:'bg-blue-100', text:'text-blue-700', label:'妙味あり'},
+    FAIR: {bg:'bg-slate-100', text:'text-slate-500', label:'適正'},
+    OVERVALUED: {bg:'bg-red-100', text:'text-red-600', label:'過大評価'},
+    NO_ODDS: {bg:'bg-slate-100', text:'text-slate-400', label:'オッズ無'},
+  }
+
   // ── バリュー分析テーブル ──
   const ValueTable = ({items, hasRealOdds}:{items:ValueItem[]; hasRealOdds:boolean}) => (
     <div>
       {!hasRealOdds && <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-3 text-xs text-amber-700">
-        オッズデータが未取得です。scheduler_v2.py update-odds を実行してください。推定オッズで計算しています。
+        オッズデータが未取得です。update_odds.cmd を実行するか scheduler_v2.py update-odds を実行してください。
       </div>}
       <div className="overflow-x-auto">
         <table className="w-full text-sm bg-white rounded-lg overflow-hidden border border-slate-200">
           <thead>
             <tr className="bg-slate-700 text-white text-xs">
-              <th className="px-3 py-2 text-left">馬名</th>
-              <th className="px-3 py-2 text-right">AI確率</th>
-              <th className="px-3 py-2 text-right">オッズ</th>
-              <th className="px-3 py-2 text-right">市場確率</th>
-              <th className="px-3 py-2 text-right">乖離</th>
-              <th className="px-3 py-2 text-right">期待値</th>
-              <th className="px-3 py-2 text-center">判定</th>
+              <th className="px-2 py-2 text-left">馬名</th>
+              <th className="px-2 py-2 text-center">AI順位</th>
+              <th className="px-2 py-2 text-center">人気</th>
+              <th className="px-2 py-2 text-center">順位差</th>
+              <th className="px-2 py-2 text-right">AI確率</th>
+              <th className="px-2 py-2 text-right">オッズ</th>
+              <th className="px-2 py-2 text-right">バリュー比</th>
+              <th className="px-2 py-2 text-center">判定</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((v,i) => (
-              <tr key={i} className={`border-t border-slate-100 ${v.verdict==='BUY'?'bg-emerald-50':v.verdict==='WATCH'?'bg-amber-50':''}`}>
-                <td className="px-3 py-2 font-medium">{v.horse_name}</td>
-                <td className="px-3 py-2 text-right font-mono text-blue-700">{(v.ai_win_prob*100).toFixed(1)}%</td>
-                <td className="px-3 py-2 text-right font-mono">{v.market_odds > 0 ? `${v.market_odds}x` : '-'}</td>
-                <td className="px-3 py-2 text-right font-mono text-slate-500">{v.market_prob > 0 ? `${(v.market_prob*100).toFixed(1)}%` : '-'}</td>
-                <td className={`px-3 py-2 text-right font-mono font-bold ${v.prob_gap>0?'text-emerald-600':'text-red-500'}`}>
-                  {v.prob_gap > 0 ? '+' : ''}{(v.prob_gap*100).toFixed(1)}%
+            {items.map((v,i) => {
+              const vs = VERDICT_STYLE[v.verdict] || VERDICT_STYLE.FAIR
+              const rowBg = v.verdict==='STRONG_BUY'?'bg-emerald-50':v.verdict==='BUY'?'bg-blue-50':''
+              return (
+              <tr key={i} className={`border-t border-slate-100 ${rowBg}`}>
+                <td className="px-2 py-2 font-medium">{v.horse_name}</td>
+                <td className="px-2 py-2 text-center font-mono font-bold text-blue-700">{v.ai_rank}</td>
+                <td className="px-2 py-2 text-center font-mono">{v.market_rank || '-'}</td>
+                <td className="px-2 py-2 text-center">
+                  {v.rank_diff !== 0 && <span className={`font-mono font-bold ${v.rank_diff>0?'text-emerald-600':'text-red-500'}`}>
+                    {v.rank_diff > 0 ? `+${v.rank_diff}` : v.rank_diff}
+                  </span>}
+                  {v.rank_diff === 0 && <span className="text-slate-400">-</span>}
                 </td>
-                <td className={`px-3 py-2 text-right font-mono font-bold ${v.expected_value>=1.0?'text-emerald-600':v.expected_value>=0.8?'text-amber-600':'text-slate-400'}`}>
-                  {v.expected_value.toFixed(2)}
+                <td className="px-2 py-2 text-right font-mono text-blue-700">{(v.ai_win_prob*100).toFixed(1)}%</td>
+                <td className="px-2 py-2 text-right font-mono">{v.market_odds > 0 ? `${v.market_odds}x` : '-'}</td>
+                <td className={`px-2 py-2 text-right font-mono font-bold ${v.value_ratio>=1.5?'text-emerald-600':v.value_ratio>=1.2?'text-blue-600':v.value_ratio>=0.8?'text-slate-500':'text-red-500'}`}>
+                  {v.value_ratio > 0 ? `${v.value_ratio.toFixed(2)}x` : '-'}
                 </td>
-                <td className="px-3 py-2 text-center">
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    v.verdict==='BUY'?'bg-emerald-100 text-emerald-700':
-                    v.verdict==='WATCH'?'bg-amber-100 text-amber-700':
-                    'bg-slate-100 text-slate-500'
-                  }`}>{v.verdict==='BUY'?'買い':v.verdict==='WATCH'?'注目':'消し'}</span>
+                <td className="px-2 py-2 text-center">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${vs.bg} ${vs.text}`}>{vs.label}</span>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
-      <div className="mt-2 text-[10px] text-slate-400">
-        期待値 = AI確率 × 実オッズ。1.0以上 = AIが市場より高く評価（バリューあり）
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-400">
+        <span>順位差 = 人気順位 - AI順位（正 = AIが市場より高評価）</span>
+        <span>バリュー比 = AI確率 / 市場確率（1.0超 = AIが市場より高評価）</span>
       </div>
     </div>
   )
@@ -214,7 +227,7 @@ export default function BettingOptimizer({ raceId }: { raceId: string }) {
         <div>
           <div className="bg-gradient-to-r from-emerald-800 to-blue-900 text-white rounded-xl p-4 mb-4">
             <h2 className="font-bold text-lg mb-1">AI vs 市場 バリュー分析</h2>
-            <p className="text-emerald-200 text-xs">AIの勝率予測と実際のオッズ（市場の評価）を比較。AIが市場より高く評価している馬がバリューベット候補です。</p>
+            <p className="text-emerald-200 text-xs">AIの順位と人気順位を比較。AIが市場より高く評価している馬（順位差がプラス・バリュー比が高い）が狙い目です。</p>
           </div>
           {loading ? <div className="text-center py-20 text-slate-400">分析中...</div>
            : result?.value_analysis ? <ValueTable items={result.value_analysis} hasRealOdds={result.has_real_odds} />
