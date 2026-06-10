@@ -41,8 +41,8 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
   const ranked = useMemo(() => {
     if(!features.length) return []
     const scored = features.map(h=>{const total=Object.entries(h.scores).reduce((s,[k,v])=>s+v*(weights[k]??1),0);return{...h,total}})
-    const mn=Math.min(...scored.map(s=>s.total)),mx=Math.max(...scored.map(s=>s.total)),rng=mx-mn||1
-    const wp=scored.map(s=>({...s,prob:(s.total-mn)/rng}))
+    const mn=Math.min(...scored.map(s=>s.total)),mx=Math.max(...scored.map(s=>s.total)),rng=mx-mn
+    const wp=rng>0?scored.map(s=>({...s,prob:(s.total-mn)/rng})):scored.map(s=>({...s,prob:1/scored.length}))
     const ps=wp.reduce((s,h)=>s+h.prob,0)||1
     const f=wp.map(s=>({...s,prob:s.prob/ps})).sort((a,b)=>b.prob-a.prob)
     const marks=['◎','○','▲','△','△']

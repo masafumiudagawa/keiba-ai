@@ -239,7 +239,7 @@ def get_features(race_id: str):
                     "grade": str(race.get("grade", "")),
                     "time": str(race.get("finish_time", "")),
                     "last3f": str(race.get("last_3f", "")),
-                    "passing": str(ext.get("passing_pattern", "")),
+                    "passing": str(race.get("passing_pattern", "")),
                 })
 
         # 枠番・馬番
@@ -284,11 +284,11 @@ def get_features(race_id: str):
                 "jockey": float(np.log1p(j_g1) * 4.5 + j_wr * 25),
                 "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,
                 "speed_figure": float((speed - 90) * 1.5) if speed > 0 else 0,
-                "pedigree": float(ext.get("sire_turf2200_winrate", 0) or 0) * 30 + float(ext.get("sire_hanshin_winrate", 0) or 0) * 20,
+                "pedigree": float(ext.get("sire_turf2200_winrate", 0) or 0) * 10 + float(ext.get("sire_hanshin_winrate", 0) or 0) * 8,
                 "public_opinion": yt_score * 2 + news_score * 2,
                 "training": (train_val - 3) * 5,
                 "running_style": float(style_bias.get(style_name, 0)),
-                "head_to_head": float(ext.get("head2head_winrate", 0) or 0) * 15 if ext.get("head2head_total") else 0,
+                "head_to_head": (int(ext.get("head2head_wins", 0) or 0) / max(int(ext.get("head2head_total", 0) or 0), 1)) * 15 if int(ext.get("head2head_total", 0) or 0) > 0 else 0,
                 "rest": float({"good": 6, "ok": 3, "poor": 0}.get(str(ext.get("rest_performance", "")), 3)),
                 "trainer": float(np.log1p(int(ext.get("trainer_g1_wins", 0) or 0)) * 3),
                 "weight_trend": float({"stable": 4, "increasing": 2, "decreasing": 0}.get(str(ext.get("weight_trend", "")), 2)),

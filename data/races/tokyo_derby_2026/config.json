@@ -9,7 +9,7 @@
   "course_type": "右・外",
   "post_time": "20:05",
   "trends": {
-    "age_bias": {"3": 25},
+    "age_bias": {"3": 25, "4": 10, "5": 5, "6": 2},
     "style_bias": {"nige": 5, "senko": 8, "sashi": 3, "oikomi": 0},
     "pace_tendency": "front_advantage",
     "key_factors": ["speed_figure", "recent_form", "distance_aptitude"]
