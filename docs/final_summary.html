@@ -136,8 +136,8 @@
 <p>参考情報。予想家バイアスや商業バイアスを考慮して影響を限定。</p>
 <table>
   <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>max</th><th>根拠</th></tr>
-  <tr><td>20</td><td>ニュース世論</td><td>news</td><td>min(ニューススコア × 0.4, 8)</td><td class="n">8</td><td>プロ記者の知見。YouTube よりやや信頼性高い</td></tr>
-  <tr><td>21</td><td>YouTube世論</td><td>youtube</td><td>min(YouTubeスコア × 0.35, 7)</td><td class="n">7</td><td>予想家バイアス・商業バイアスを考慮し最も抑制</td></tr>
+  <tr><td>20</td><td>ニュース世論</td><td>news</td><td>min(ニューススコア × 0.6, 12)</td><td class="n">12</td><td>プロ記者の知見。キャップ内で差別化を確保</td></tr>
+  <tr><td>21</td><td>YouTube世論</td><td>youtube</td><td>min(YouTubeスコア × 0.5, 12)</td><td class="n">12</td><td>市場の集合知。ニュースと同等のキャップ</td></tr>
   <tr><td>22</td><td>血統（競馬場）</td><td>pedigree_venue</td><td>min(父の競馬場勝率 × 20, 6)</td><td class="n">6</td><td>コース特性は父から遺伝</td></tr>
   <tr><td>23</td><td>血統（重馬場）</td><td>pedigree_heavy</td><td>min(父の重馬場勝率 × 15, 5)</td><td class="n">5</td><td>重馬場は血統的適性が顕著に出る</td></tr>
 </table>
@@ -150,7 +150,7 @@
   <tr><td>ML研究との整合</td><td>LightGBM/XGBoostの feature importance 上位（前走, SP指数, 騎手）をTier1に配置</td></tr>
   <tr><td>相関カテゴリの抑制</td><td>pedigree_distance×venue r=0.98, youtube×news r=0.97 → Tier4に抑制し二重計上を防止</td></tr>
   <tr><td>学術研究の反映</td><td>年齢ピーク4.45歳, 休養明け好走率向上, 馬体重±2kg最高勝率 等を配点に反映</td></tr>
-  <tr><td>バイアス対策</td><td>世論（YouTube/ニュース）は予想家バイアスがあるため max 7-8 に制限</td></tr>
+  <tr><td>世論の位置づけ</td><td>世論は「市場の集合知」として一定の価値あり。キャップ(max12)内で差別化を確保しつつ、Tier1を超えない設計</td></tr>
 </table>
 </div>
 

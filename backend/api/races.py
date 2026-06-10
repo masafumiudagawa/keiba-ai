@@ -341,10 +341,10 @@ def get_features(race_id: str):
                 "weight_trend": float({"stable": 7, "increasing": 4, "decreasing": 2}.get(str(ext.get("weight_trend", "")), 4)),  # max 7
 
                 # ── Tier4: 補助（max 5-8） ──
-                # 20. ニュース世論: プロ記者の知見（商業バイアスを考慮し抑制）
-                "news": min(news_score * 0.4, 8),                                          # max 8
-                # 21. YouTube世論: 参考情報（予想家バイアスを考慮しさらに抑制）
-                "youtube": min(yt_score * 0.35, 7),                                        # max 7
+                # 20. ニュース世論: プロ記者の知見。キャップは設けつつ差別化を確保
+                "news": min(news_score * 0.6, 12),                                         # max 12
+                # 21. YouTube世論: 市場の集合知として参考。ニュースよりやや抑制
+                "youtube": min(yt_score * 0.5, 12),                                        # max 12
                 # 22. 血統（競馬場適性）: コース特性は父から遺伝
                 "pedigree_venue": min(float(ext.get("sire_hanshin_winrate", 0) or 0) * 20, 6),  # max 6
                 # 23. 血統（重馬場適性）: 重馬場時に差別化要因
