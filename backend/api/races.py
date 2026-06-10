@@ -154,6 +154,15 @@ def get_features(race_id: str):
     age_bias = trends.get("age_bias", {"4": 20, "5": 25, "6": 8})
     style_bias = trends.get("style_bias", {"nige": 8, "senko": 5, "sashi": 2, "oikomi": 0})
 
+    # 馬場状態の取得（天気データから）
+    track_condition = "良"  # デフォルト
+    if not weather.empty:
+        tc = weather.iloc[-1].get("predicted_track_condition", "良")
+        if tc and str(tc) != "nan":
+            track_condition = str(tc)
+    is_heavy = track_condition in ("重", "不良")
+    is_yielding = track_condition == "稍重"
+
     horses = []
     if entries.empty:
         return {"features": [], "config": config}
@@ -299,10 +308,10 @@ def get_features(race_id: str):
                 # ── Tier1: 最重要（max 25-32） ──
                 # 1. 前走着順: 直近成績が最も予測に寄与（ML研究で一貫して上位）
                 "last_finish": (18 - min(max(last1, 1), 18)) * 1.5,                      # max 25.5
-                # 2. スピード指数: 能力の絶対値（芝での精度低下を考慮し係数抑制）
-                "speed_figure": float((speed - 90) * 1.2) if speed > 0 else 0,            # max 30
-                # 3. 上がり3F: 中距離G1で決定的。最速馬の複勝率が極めて高い
-                "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,  # max 25
+                # 2. スピード指数: 能力の絶対値。重馬場ではタイムが出にくいため減衰
+                "speed_figure": float((speed - 90) * (0.8 if is_heavy else 1.0 if is_yielding else 1.2)) if speed > 0 else 0,  # max 30(良), 25(稍), 20(重)
+                # 3. 上がり3F: 中距離G1で決定的。重馬場ではタイム差が出にくいため減衰
+                "last_3f": float((37 - min(max(best3f, 32), 37)) * (3.5 if is_heavy else 4.2 if is_yielding else 5)) if best3f > 0 else 0,  # max 25(良)/21(稍)/17.5(重)
                 # 4. G1勝利: 最高峰での実績。対数で差を圧縮
                 "g1_wins": min(float(np.log1p(g1_wins) * 15), 25),                        # max 25
                 # 5. 距離適性: 距離±400m・同馬場の好走率+平均着順+経験値（G1馬はすでに適性ありなので係数抑制）
@@ -347,8 +356,11 @@ def get_features(race_id: str):
                 "youtube": min(yt_score * 0.5, 12),                                        # max 12
                 # 22. 血統（競馬場適性）: コース特性は父から遺伝
                 "pedigree_venue": min(float(ext.get("sire_hanshin_winrate", 0) or 0) * 20, 6),  # max 6
-                # 23. 血統（重馬場適性）: 重馬場時に差別化要因
-                "pedigree_heavy": min(float(ext.get("sire_heavy_winrate", 0) or 0) * 15, 5),    # max 5
+                # 23. 血統（重馬場適性）: 重/不良時に大幅増幅、良馬場時は抑制
+                "pedigree_heavy": min(
+                    float(ext.get("sire_heavy_winrate", 0) or 0) * (40 if is_heavy else 25 if is_yielding else 10),
+                    12 if is_heavy else 8 if is_yielding else 5
+                ),  # max 12(重)/8(稍)/5(良)
             },
             "raw": {
                 "g1_wins": g1_wins,
