@@ -7,17 +7,19 @@ const FIN_BG: Record<number, string> = { 1: 'bg-red-600 text-white', 2: 'bg-blue
 
 const WEIGHT_CATEGORIES = [
   { key: 'age', label: '馬齢' }, { key: 'recent_form', label: '近走' }, { key: 'g1_record', label: 'G1' },
-  { key: 'distance_aptitude', label: '距離' }, { key: 'jockey', label: '騎手' }, { key: 'last_3f', label: '3F' },
+  { key: 'career_win_rate', label: '勝率' }, { key: 'distance_aptitude', label: '距離' },
+  { key: 'venue_experience', label: 'コース' }, { key: 'jockey', label: '騎手' }, { key: 'last_3f', label: '3F' },
   { key: 'speed_figure', label: '能力' }, { key: 'pedigree', label: '血統' }, { key: 'public_opinion', label: '世論' },
   { key: 'training', label: '調教' }, { key: 'running_style', label: '脚質' }, { key: 'head_to_head', label: '対戦' },
   { key: 'rest', label: '休養' }, { key: 'trainer', label: '厩舎' }, { key: 'weight_trend', label: '体重' },
 ]
 const PRESETS: Record<string, Record<string, number>> = {
   standard: Object.fromEntries(WEIGHT_CATEGORIES.map(c => [c.key, 1.0])),
-  data: { age:1,recent_form:1.3,g1_record:1.3,distance_aptitude:1.2,jockey:1,last_3f:1.5,speed_figure:1.5,pedigree:1,public_opinion:0.3,training:0.8,running_style:1,head_to_head:1.2,rest:1,trainer:0.8,weight_trend:1 },
-  upset: { age:0.5,recent_form:0.5,g1_record:0.3,distance_aptitude:1,jockey:0.5,last_3f:2,speed_figure:1.5,pedigree:1.2,public_opinion:0.2,training:1.5,running_style:1.5,head_to_head:0.5,rest:1.2,trainer:0.5,weight_trend:1 },
-  pedigree: { age:0.8,recent_form:0.8,g1_record:1,distance_aptitude:1.3,jockey:0.8,last_3f:1,speed_figure:1,pedigree:2,public_opinion:0.3,training:0.8,running_style:1,head_to_head:0.8,rest:1,trainer:1,weight_trend:1 },
-  jockey: { age:1,recent_form:1,g1_record:1,distance_aptitude:1,jockey:2,last_3f:1,speed_figure:1,pedigree:0.8,public_opinion:0.5,training:1.2,running_style:1,head_to_head:1,rest:1,trainer:1.2,weight_trend:1 },
+  data: { age:1,recent_form:1.3,g1_record:1.3,career_win_rate:1.2,distance_aptitude:1.2,venue_experience:1,jockey:1,last_3f:1.5,speed_figure:1.5,pedigree:1,public_opinion:0.3,training:0.8,running_style:1,head_to_head:1.2,rest:1,trainer:0.8,weight_trend:1 },
+  upset: { age:0.5,recent_form:0.5,g1_record:0.3,career_win_rate:0.5,distance_aptitude:1,venue_experience:1.5,jockey:0.5,last_3f:2,speed_figure:1.5,pedigree:1.2,public_opinion:0.2,training:1.5,running_style:1.5,head_to_head:0.5,rest:1.2,trainer:0.5,weight_trend:1 },
+  pedigree: { age:0.8,recent_form:0.8,g1_record:1,career_win_rate:0.8,distance_aptitude:1.3,venue_experience:1,jockey:0.8,last_3f:1,speed_figure:1,pedigree:2,public_opinion:0.3,training:0.8,running_style:1,head_to_head:0.8,rest:1,trainer:1,weight_trend:1 },
+  jockey: { age:1,recent_form:1,g1_record:1,career_win_rate:1,distance_aptitude:1,venue_experience:1.2,jockey:2,last_3f:1,speed_figure:1,pedigree:0.8,public_opinion:0.5,training:1.2,running_style:1,head_to_head:1,rest:1,trainer:1.2,weight_trend:1 },
+  course: { age:0.8,recent_form:1,g1_record:0.8,career_win_rate:1,distance_aptitude:1.8,venue_experience:2,jockey:1,last_3f:1.2,speed_figure:1,pedigree:1.3,public_opinion:0.3,training:1,running_style:1.2,head_to_head:1,rest:1,trainer:1,weight_trend:1 },
 }
 
 interface Recent { date:string;venue:string;race:string;dist:number;finish:number|string;grade:string;time:string;last3f:string;passing:string }
@@ -87,7 +89,7 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
       </div>
       {showWeights&&<div className="bg-white rounded-xl border border-slate-200 p-3 mb-3 shadow-sm">
         <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-slate-100">
-          {[['standard','標準'],['data','データ重視'],['pedigree','血統重視'],['jockey','騎手重視'],['upset','穴馬発掘']].map(([k,l])=>(<button key={k} onClick={()=>setWeights(PRESETS[k])} className="px-2 py-1 rounded text-xs bg-slate-50 border border-slate-200 hover:bg-blue-50">{l}</button>))}
+          {[['standard','標準'],['data','データ重視'],['pedigree','血統重視'],['jockey','騎手重視'],['course','コース重視'],['upset','穴馬発掘']].map(([k,l])=>(<button key={k} onClick={()=>setWeights(PRESETS[k])} className="px-2 py-1 rounded text-xs bg-slate-50 border border-slate-200 hover:bg-blue-50">{l}</button>))}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
           {WEIGHT_CATEGORIES.map(c=>(<div key={c.key} className="flex items-center gap-1"><span className="text-[10px] text-slate-500 w-8 shrink-0">{c.label}</span><input type="range" min="0" max="2" step="0.1" value={weights[c.key]??1} onChange={e=>setWeights({...weights,[c.key]:parseFloat(e.target.value)})} className="flex-1 h-2 accent-blue-600"/><span className={`text-[10px] font-mono w-6 text-right ${(weights[c.key]??1)!==1?'text-blue-700 font-bold':'text-slate-400'}`}>{(weights[c.key]??1).toFixed(1)}</span></div>))}

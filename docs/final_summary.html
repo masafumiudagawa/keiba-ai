@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>競馬予想AI 最終設計書 - 宝塚記念2026</title>
+<title>競馬予想AI 最終設計書 v4.0</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;line-height:1.7;font-size:14px}
@@ -20,39 +20,38 @@
   .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
   .f{background:#1e293b;color:#e2e8f0;padding:10px 14px;border-radius:6px;font-family:Consolas,monospace;font-size:.78rem;margin:8px 0;overflow-x:auto;white-space:pre}
   .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
-  .hi{background:#fef2f2}
+  .hi{background:#f0fdf4}
   .ok{background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-size:.82rem}
   .warn{background:#fffbeb;border-left:3px solid #f59e0b;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-size:.82rem}
   .blue{background:#eff6ff;border-left:3px solid #2563eb;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-size:.82rem}
+  .new{background:#eff6ff}
   .tag{display:inline-block;padding:1px 7px;border-radius:8px;font-size:.68rem;font-weight:600}
-  .tg{background:#dcfce7;color:#166534}.tp{background:#dbeafe;color:#1e40af}.ti{background:#fef2f2;color:#991b1b}.th{background:#fef3c7;color:#92400e}
+  .tg{background:#dcfce7;color:#166534}.tp{background:#dbeafe;color:#1e40af}.ti{background:#fef2f2;color:#991b1b}
   hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
   footer{text-align:center;color:#94a3b8;padding:20px;font-size:.75rem}
   .toc{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px}
   .toc a{color:#2563eb;text-decoration:none;font-size:.85rem}
-  .toc a:hover{text-decoration:underline}
-  .toc ol{padding-left:20px}
-  .toc li{margin:3px 0}
+  .toc ol{padding-left:20px}.toc li{margin:3px 0}
 </style>
 </head>
 <body>
 <div class="c">
 
-<h1>競馬予想AI 最終設計書</h1>
-<p class="sub">宝塚記念 2026（阪神芝2200m, 6/14日曜 15:40）| 最終更新: 2026-06-09 17:00</p>
+<h1>競馬予想AI 最終設計書 v4.0</h1>
+<p class="sub">汎用マルチレース対応 | 最終更新: 2026-06-10 | 17カテゴリ × 全馬スコアリング</p>
 
 <div class="toc">
   <strong>目次</strong>
   <ol>
     <li><a href="#s1">システム概要</a></li>
-    <li><a href="#s2">データソース一覧（7系統 + 拡張12カテゴリ）</a></li>
-    <li><a href="#s3">予測エンジン（23カテゴリ × 65特徴量）</a></li>
-    <li><a href="#s4">全18頭 データ＆スコア一覧</a></li>
-    <li><a href="#s5">最終予測結果</a></li>
-    <li><a href="#s6">買い目最適化ロジック</a></li>
-    <li><a href="#s7">シミュレーションエンジン</a></li>
+    <li><a href="#s2">データソース一覧</a></li>
+    <li><a href="#s3">予測エンジン（17カテゴリ詳細）</a></li>
+    <li><a href="#s4">ウェイト調整UI（6プリセット）</a></li>
+    <li><a href="#s5">買い目最適化エンジン v3（バリュー比率ベース）</a></li>
+    <li><a href="#s6">データ自動更新（scheduler_v2）</a></li>
+    <li><a href="#s7">馬画像API</a></li>
     <li><a href="#s8">Webアプリ構成</a></li>
-    <li><a href="#s9">残課題・木曜以降のアクション</a></li>
+    <li><a href="#s9">v3.0 → v4.0 変更履歴</a></li>
   </ol>
 </div>
 
@@ -60,199 +59,223 @@
 <h2 id="s1">1. システム概要</h2>
 <div class="card">
   <div class="g">
-    <div><strong>予測エンジン</strong><br>ルールベース（23カテゴリスコアリング）+ LightGBM のアンサンブル。枠番未確定時はルールベースのみ、確定後はLGBM 40% + Rule 60%。</div>
-    <div><strong>技術スタック</strong><br>Backend: FastAPI (Python) | Frontend: React + TypeScript + Tailwind | ML: LightGBM | Deploy: Render | シミュレーション: NumPy Monte Carlo + Canvas 2D</div>
-    <div><strong>URL</strong><br>Render: <code>https://keiba-ai-0tll.onrender.com</code><br>GitHub: <code>github.com/masafumiudagawa/keiba-ai</code></div>
+    <div><strong>予測エンジン</strong><br>ルールベース 17カテゴリスコアリング。各カテゴリにユーザーがウェイト（0.0〜2.0x）を設定し、フロントエンドでリアルタイムに順位・確率を再計算。</div>
+    <div><strong>買い目最適化</strong><br>バリュー比率ベース（v3）。AI確率と実オッズ（市場評価）を比較し、AIが市場より高く評価している馬・組み合わせのみを推奨。</div>
+    <div><strong>技術スタック</strong><br>Backend: FastAPI (Python 3.13) | Frontend: React 19 + TypeScript 6 + Tailwind 4 + Vite 8 | Deploy: Render</div>
   </div>
 </div>
 
 <!-- ═══════ 2 ═══════ -->
 <h2 id="s2">2. データソース一覧</h2>
 
-<h3>2-A. 基本データ（7系統）</h3>
+<h3>2-A. レース別データ（data/races/{race_id}/配下）</h3>
 <table>
-  <tr><th>ソース</th><th>件数</th><th>主な特徴量</th><th>状態</th></tr>
-  <tr><td>各馬の過去成績</td><td>100レース/18頭</td><td>勝率, G1, 距離適性, 近走</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>騎手成績</td><td>16名</td><td>勝率, G1勝利(対数), 阪神勝率</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>宝塚記念過去結果</td><td>91行/6年</td><td>馬齢・脚質傾向</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>YouTube予想</td><td>18馬</td><td>本命指名数, スコア</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>ニュース予想</td><td>18馬</td><td>新聞◎○▲集計</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>調教データ</td><td>18件</td><td>追い切り評価(1-5)</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>天気予報</td><td>1件</td><td>馬場状態予測→「良」</td><td><span class="tag tg">済</span></td></tr>
+  <tr><th>ファイル</th><th>内容</th><th>更新方式</th></tr>
+  <tr><td>config.json</td><td>レース設定（距離, 馬場, 馬齢バイアス, 脚質バイアス, netkeiba_race_id）</td><td>手動 / scheduler自動</td></tr>
+  <tr><td>entries.csv</td><td>出走馬基本情報（馬名, 性齢, 斤量, 騎手, 枠番）</td><td>手動</td></tr>
+  <tr><td>horse_history.csv</td><td>過去走データ（距離, 着順, タイム, 3F, 馬場）→ 距離適性・近走計算に使用</td><td>手動</td></tr>
+  <tr><td>extended_data.csv</td><td>拡張データ（上がり3F, 脚質, 血統, 対戦, SP指数, 厩舎, 休養, 体重, netkeiba_id等）</td><td>手動 / scheduler(ID自動取得)</td></tr>
+  <tr><td>odds.csv</td><td>実オッズ（単勝オッズ, 人気順位）→ バリュー分析に使用</td><td><span class="tag tg">scheduler自動</span></td></tr>
+  <tr><td>weather.csv</td><td>天気予報（気温, 降水, 馬場状態予測）</td><td><span class="tag tg">scheduler自動</span></td></tr>
+  <tr><td>youtube.csv</td><td>YouTube予想スコア</td><td>手動</td></tr>
+  <tr><td>news.csv</td><td>ニュース予想スコア</td><td>手動</td></tr>
+  <tr><td>training.csv</td><td>調教強度（1-5段階）</td><td>手動</td></tr>
 </table>
 
-<h3>2-B. 拡張データ（12カテゴリ, 本日追加）</h3>
+<h3>2-B. 共通データ</h3>
 <table>
-  <tr><th>カテゴリ</th><th>内容</th><th>全18頭</th><th>状態</th></tr>
-  <tr><td>上がり3F</td><td>ベスト+平均（32.2〜36.0秒）</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>脚質</td><td>逃げ/先行/差し/追込 + 通過順パターン</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>血統（種牡馬詳細）</td><td>芝2200m勝率, 阪神勝率, 重馬場勝率</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>対戦成績</td><td>直接対決の勝敗数</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>スピード指数</td><td>能力値(94〜115スケール)</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>調教師G1実績</td><td>厩舎のG1勝利数</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>前走間隔</td><td>日数 + 休み明け成績傾向</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>馬体重トレンド</td><td>安定/増加/減少</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>母父</td><td>ダムサイアー名</td><td>18/18</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>展開予測</td><td>逃げ馬2頭→ミドル〜ハイ想定</td><td>-</td><td><span class="tag tg">済</span></td></tr>
-  <tr><td>枠番バイアス</td><td>阪神2200m過去データ（中枠やや有利）</td><td>-</td><td><span class="tag th">木曜</span></td></tr>
-  <tr><td>パドック評価</td><td>当日のみ</td><td>-</td><td><span class="tag th">当日</span></td></tr>
+  <tr><td>data/common/jockey_stats.csv</td><td>騎手成績（G1勝数, 勝率）</td><td>手動</td></tr>
 </table>
 
 <!-- ═══════ 3 ═══════ -->
-<h2 id="s3">3. 予測エンジン（23カテゴリ × 65特徴量）</h2>
+<h2 id="s3">3. 予測エンジン（17カテゴリ詳細）</h2>
+
+<div class="ok">
+v3.0の23カテゴリから統合・再設計。旧「前走+2走前」→「近走」、旧「G1勝利+G1複勝」→「G1実績」等に統合し、新たに「通算勝率」「コース経験」を追加。全カテゴリが意味のある計算を持つ。
+</div>
 
 <table>
-  <tr><th>#</th><th>カテゴリ</th><th>計算式</th><th>max pt</th><th>根拠</th></tr>
-  <tr><td>1</td><td>馬齢</td><td>{4歳:20, 5歳:25, 6歳:8, 8歳:2}</td><td class="n">25</td><td>過去10年で5歳7勝,4歳3勝</td></tr>
-  <tr><td>2</td><td>前走着順</td><td>(18-着順)×1.5</td><td class="n">25.5</td><td>直近成績が最重要</td></tr>
-  <tr><td>3</td><td>2走前</td><td>(18-着順)×0.8</td><td class="n">13.6</td><td></td></tr>
-  <tr><td>4</td><td>G1勝利</td><td>ln(1+G1勝数)×15</td><td class="n">~25</td><td>対数で差を圧縮</td></tr>
-  <tr><td>5</td><td>G1複勝</td><td>G1複勝回数×5</td><td class="n">~30</td><td></td></tr>
-  <tr><td>6</td><td>距離適性</td><td>2000-2400m勝率×15</td><td class="n">15</td><td></td></tr>
-  <tr><td>7</td><td>阪神適性</td><td>阪神勝率×10</td><td class="n">10</td><td></td></tr>
-  <tr><td>8</td><td>通算勝率</td><td>通算勝率×15</td><td class="n">15</td><td></td></tr>
-  <tr><td>9</td><td>騎手G1</td><td>ln(1+G1勝)×4.5</td><td class="n">~20</td><td>武豊79勝→19.7</td></tr>
-  <tr><td>10</td><td>騎手勝率</td><td>勝率×25 + 複勝率×10</td><td class="n">~9</td><td></td></tr>
-  <tr><td>11</td><td>宝塚経験</td><td>出走あり→+5</td><td class="n">5</td><td></td></tr>
-  <tr><td>12</td><td>YouTube</td><td>スコア×2 + 本命数×3</td><td class="n">~90</td><td>市場の合意</td></tr>
-  <tr><td>13</td><td>ニュース</td><td>スコア×2 + 本命数×3</td><td class="n">~90</td><td>専門家の合意</td></tr>
-  <tr><td>14</td><td>調教</td><td>(評価-3)×5</td><td class="n">10</td><td></td></tr>
-  <tr style="background:#eff6ff"><td>16</td><td><strong>上がり3F</strong></td><td>(37-ベスト3F)×5</td><td class="n"><strong>25</strong></td><td><strong>最速馬=複勝率100%</strong></td></tr>
-  <tr style="background:#eff6ff"><td>17</td><td><strong>スピード指数</strong></td><td>(指数-90)×1.5</td><td class="n"><strong>37.5</strong></td><td>能力の絶対値</td></tr>
-  <tr style="background:#eff6ff"><td>18</td><td><strong>血統適性</strong></td><td>父2200m×30+阪神×20+重×5</td><td class="n"><strong>12</strong></td><td>ゴールドシップ=重馬場◎</td></tr>
-  <tr style="background:#eff6ff"><td>19</td><td><strong>対戦成績</strong></td><td>対戦勝率×15</td><td class="n"><strong>15</strong></td><td>直接対決の相性</td></tr>
-  <tr style="background:#eff6ff"><td>20</td><td><strong>脚質</strong></td><td>逃げ+8, 先行+5, 差し+2, 追込0</td><td class="n"><strong>8</strong></td><td>宝塚記念は前有利</td></tr>
-  <tr style="background:#eff6ff"><td>21</td><td><strong>休養適性</strong></td><td>good=6, ok=3, poor=0</td><td class="n"><strong>6</strong></td><td></td></tr>
-  <tr style="background:#eff6ff"><td>22</td><td><strong>調教師G1</strong></td><td>ln(1+G1勝)×3</td><td class="n"><strong>5</strong></td><td></td></tr>
-  <tr style="background:#eff6ff"><td>23</td><td><strong>体重トレンド</strong></td><td>安定=4, 増加=2, 減少=0</td><td class="n"><strong>4</strong></td><td></td></tr>
+  <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>範囲(目安)</th><th>データソース</th></tr>
+  <tr><td>1</td><td>馬齢</td><td>age</td><td>config.trends.age_bias[年齢]</td><td class="n">0-25</td><td>config.json</td></tr>
+  <tr><td>2</td><td>近走成績</td><td>recent_form</td><td>(18-前走着順)×1.5 + (18-前々走着順)×0.8</td><td class="n">0-39</td><td>horse_history.csv</td></tr>
+  <tr><td>3</td><td>G1実績</td><td>g1_record</td><td>ln(1+G1勝数)×15 + G1複勝回数×5</td><td class="n">0-50</td><td>horse_history.csv</td></tr>
+  <tr class="new"><td>4</td><td><strong>通算勝率</strong></td><td>career_win_rate</td><td>通算勝率 × 15</td><td class="n">0-15</td><td>horse_history.csv</td></tr>
+  <tr><td>5</td><td>距離適性</td><td>distance_aptitude</td><td>レース距離±400m・同馬場の好走率×20 + (10-平均着順)×1.5 + 経験値</td><td class="n">0-40</td><td>horse_history.csv + config.json</td></tr>
+  <tr class="new"><td>6</td><td><strong>コース経験</strong></td><td>venue_experience</td><td>同競馬場の好走率×10 + min(出走数,5)×1.5</td><td class="n">0-18</td><td>horse_history.csv + config.json</td></tr>
+  <tr><td>7</td><td>騎手力</td><td>jockey</td><td>ln(1+G1勝数)×4.5 + 2026年勝率×25</td><td class="n">0-25</td><td>jockey_stats.csv</td></tr>
+  <tr><td>8</td><td>上がり3F</td><td>last_3f</td><td>(37-ベスト3F)×5 （32〜37秒でクリップ）</td><td class="n">0-25</td><td>extended_data.csv</td></tr>
+  <tr><td>9</td><td>能力値</td><td>speed_figure</td><td>(スピード指数-90)×1.5</td><td class="n">0-40</td><td>extended_data.csv</td></tr>
+  <tr><td>10</td><td>血統適性</td><td>pedigree</td><td>父の距離勝率×10 + 父の競馬場勝率×8 + 父の重馬場勝率×5</td><td class="n">0-15</td><td>extended_data.csv</td></tr>
+  <tr><td>11</td><td>世論</td><td>public_opinion</td><td>min(YouTube×0.5 + ニュース×0.5, 20)</td><td class="n">0-20</td><td>youtube.csv + news.csv</td></tr>
+  <tr><td>12</td><td>調教</td><td>training</td><td>(調教強度-3)×5</td><td class="n">-10〜10</td><td>training.csv</td></tr>
+  <tr><td>13</td><td>脚質</td><td>running_style</td><td>config.trends.style_bias[脚質]</td><td class="n">0-8</td><td>extended_data.csv + config.json</td></tr>
+  <tr><td>14</td><td>対戦成績</td><td>head_to_head</td><td>(対戦勝数/対戦総数) × 15</td><td class="n">0-15</td><td>extended_data.csv</td></tr>
+  <tr><td>15</td><td>休養</td><td>rest</td><td>good=6, ok=3, poor=0</td><td class="n">0-6</td><td>extended_data.csv</td></tr>
+  <tr><td>16</td><td>厩舎</td><td>trainer</td><td>ln(1+厩舎G1勝数)×3</td><td class="n">0-8</td><td>extended_data.csv</td></tr>
+  <tr><td>17</td><td>体重推移</td><td>weight_trend</td><td>stable=4, increasing=2, decreasing=0</td><td class="n">0-4</td><td>extended_data.csv</td></tr>
 </table>
-<div class="warn">#12-13 YouTube/ニュース（合計最大180pt）が全体の中で影響が大きい。独自予測力を高めるには世論ウェイトを下げる余地あり。</div>
+
+<h3>3-B. スコア→確率 変換フロー</h3>
+<div class="f">1. 各馬の合計スコア = Σ(カテゴリスコア × ウェイト)
+2. 正規化: prob = (合計 - 最小値) / (最大値 - 最小値)
+   ※全馬同スコアの場合は等確率(1/N)にフォールバック
+3. 確率化: prob = prob / Σprob  （合計100%に正規化）
+4. ソート → 順位 → 印（◎○▲△△）</div>
+
+<h3>3-C. 旧23カテゴリ → 現17カテゴリ 変遷</h3>
+<table>
+  <tr><th>旧カテゴリ</th><th>変更</th><th>現カテゴリ</th></tr>
+  <tr><td>前走着順 + 2走前着順</td><td>統合</td><td>recent_form</td></tr>
+  <tr><td>G1勝利 + G1複勝</td><td>統合</td><td>g1_record</td></tr>
+  <tr><td>距離適性 + 阪神適性</td><td>統合（汎用化）</td><td>distance_aptitude</td></tr>
+  <tr><td>騎手G1 + 騎手勝率</td><td>統合</td><td>jockey</td></tr>
+  <tr><td>YouTube + ニュース</td><td>統合 + 上限キャップ</td><td>public_opinion (max 20)</td></tr>
+  <tr><td>通算勝率</td><td><span class="tag tg">復活(v4)</span></td><td>career_win_rate</td></tr>
+  <tr><td>宝塚経験</td><td><span class="tag tg">汎用化(v4)</span></td><td>venue_experience</td></tr>
+  <tr><td>宝塚経験（旧）</td><td>コース経験に汎用化</td><td>venue_experience</td></tr>
+</table>
 
 <!-- ═══════ 4 ═══════ -->
-<h2 id="s4">4. 全18頭 データ＆スコア一覧</h2>
+<h2 id="s4">4. ウェイト調整UI（6プリセット）</h2>
 
-<div style="overflow-x:auto">
+<div class="card">
+<p>フロントエンド（PredictionTable.tsx）で各カテゴリのウェイトを0.0〜2.0のスライダーで調整可能。変更はリアルタイムに順位・確率に反映される。</p>
+
 <table>
-  <tr>
-    <th>馬名</th><th>戦績</th><th>G1勝</th><th>前走</th><th>3Fベスト</th><th>SP指数</th>
-    <th>脚質</th><th>父2200%</th><th>対戦</th><th>騎手G1</th><th>YT</th><th>News</th><th>調教</th>
-  </tr>
-  <tr class="hi"><td><strong>クロワデュノール</strong></td><td class="n">10走7勝</td><td class="n">4</td><td class="n">1着</td><td class="n">33.2</td><td class="n">115</td><td>先行</td><td class="n">18%</td><td class="n">67%</td><td class="n">6</td><td class="n">35</td><td class="n">45</td><td class="n">4.0</td></tr>
-  <tr class="hi"><td><strong>ミュージアムマイル</strong></td><td class="n">4走2勝</td><td class="n">2</td><td class="n">1着</td><td class="n">33.5</td><td class="n">112</td><td>差し</td><td class="n">18%</td><td class="n">50%</td><td class="n">22</td><td class="n">20</td><td class="n">36</td><td class="n">4.0</td></tr>
-  <tr class="hi"><td><strong>ダノンデサイル</strong></td><td class="n">9走4勝</td><td class="n">2</td><td class="n">3着</td><td class="n">33.6</td><td class="n">110</td><td>先行</td><td class="n">16%</td><td class="n">42%</td><td class="n">25</td><td class="n">14</td><td class="n">23</td><td class="n">4.5</td></tr>
-  <tr class="hi"><td><strong>レガレイラ</strong></td><td class="n">8走4勝</td><td class="n">3</td><td class="n">4着</td><td class="n">33.8</td><td class="n">111</td><td>差し</td><td class="n">14%</td><td class="n">50%</td><td class="n">48</td><td class="n">17</td><td class="n">27</td><td class="n">4.0</td></tr>
-  <tr class="hi"><td><strong>メイショウタバル</strong></td><td class="n">5走1勝</td><td class="n">1</td><td class="n">4着</td><td class="n">35.8</td><td class="n">108</td><td>逃げ</td><td class="n">20%</td><td class="n">40%</td><td class="n">79</td><td class="n">22</td><td class="n">34</td><td class="n">4.5</td></tr>
-  <tr><td>シンエンペラー</td><td class="n">9走2勝</td><td class="n">0</td><td class="n">7着</td><td class="n">33.4</td><td class="n">109</td><td>先行</td><td class="n">15%</td><td class="n">38%</td><td class="n">5</td><td class="n">8</td><td class="n">9</td><td class="n">3.5</td></tr>
-  <tr><td>マイユニバース</td><td class="n">4走2勝</td><td class="n">0</td><td class="n">1着</td><td class="n">33.8</td><td class="n">105</td><td>先行</td><td class="n">16%</td><td class="n">0%</td><td class="n">33</td><td class="n">4</td><td class="n">5</td><td class="n">4.0</td></tr>
-  <tr><td>コスモキュランダ</td><td class="n">10走1勝</td><td class="n">0</td><td class="n">4着</td><td class="n">34.0</td><td class="n">106</td><td>先行</td><td class="n">14%</td><td class="n">25%</td><td class="n">8</td><td class="n">6</td><td class="n">6</td><td class="n">3.0</td></tr>
-  <tr><td>ビザンチンドリーム</td><td class="n">9走2勝</td><td class="n">0</td><td class="n">5着</td><td class="n">33.5</td><td class="n">107</td><td>追込</td><td class="n">14%</td><td class="n">17%</td><td class="n">2</td><td class="n">4</td><td class="n">2</td><td class="n">3.0</td></tr>
-  <tr><td>ジューンテイク</td><td class="n">5走0勝</td><td class="n">0</td><td class="n">2着</td><td class="n">34.5</td><td class="n">102</td><td>差し</td><td class="n">17%</td><td class="n">20%</td><td class="n">7</td><td class="n">7</td><td class="n">7</td><td class="n">3.0</td></tr>
-  <tr><td>タガノデュード</td><td class="n">5走0勝</td><td class="n">0</td><td class="n">6着</td><td class="n">34.2</td><td class="n">103</td><td>差し</td><td class="n">12%</td><td class="n">0%</td><td class="n">0</td><td class="n">10</td><td class="n">14</td><td class="n">4.0</td></tr>
-  <tr><td>マイネルエンペラー</td><td class="n">3走1勝</td><td class="n">0</td><td class="n">3着</td><td class="n">34.5</td><td class="n">101</td><td>先行</td><td class="n">13%</td><td class="n">0%</td><td class="n">35</td><td class="n">1</td><td class="n">1</td><td class="n">3.0</td></tr>
-  <tr><td>シュガークン</td><td class="n">3走1勝</td><td class="n">1</td><td class="n">8着</td><td class="n">34.8</td><td class="n">104</td><td>先行</td><td class="n">17%</td><td class="n">0%</td><td class="n">0</td><td class="n">1</td><td class="n">1</td><td class="n">3.0</td></tr>
-  <tr><td>シェイクユアハート</td><td class="n">4走1勝</td><td class="n">0</td><td class="n">1着</td><td class="n">34.8</td><td class="n">98</td><td>逃げ</td><td class="n">10%</td><td class="n">0%</td><td class="n">0</td><td class="n">3</td><td class="n">1</td><td class="n">3.0</td></tr>
-  <tr><td>ミクニインスパイア</td><td class="n">3走0勝</td><td class="n">0</td><td class="n">2着</td><td class="n">34.2</td><td class="n">99</td><td>差し</td><td class="n">14%</td><td class="n">0%</td><td class="n">0</td><td class="n">2</td><td class="n">1</td><td class="n">3.0</td></tr>
-  <tr><td>スティンガーグラス</td><td class="n">3走0勝</td><td class="n">0</td><td class="n">3着</td><td class="n">34.0</td><td class="n">100</td><td>差し</td><td class="n">15%</td><td class="n">0%</td><td class="n">0</td><td class="n">1</td><td class="n">1</td><td class="n">3.0</td></tr>
-  <tr><td>ファミリータイム</td><td class="n">3走0勝</td><td class="n">0</td><td class="n">10着</td><td class="n">35.0</td><td class="n">96</td><td>差し</td><td class="n">17%</td><td class="n">0%</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">3.0</td></tr>
-  <tr><td>ミステリーウェイ</td><td class="n">3走1勝</td><td class="n">0</td><td class="n">5着</td><td class="n">35.5</td><td class="n">94</td><td>逃げ</td><td class="n">11%</td><td class="n">0%</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">3.0</td></tr>
+  <tr><th>プリセット名</th><th>特徴</th><th>主な増減</th></tr>
+  <tr><td>標準</td><td>全カテゴリ 1.0x</td><td>-</td></tr>
+  <tr><td>データ重視</td><td>数値データを重視、世論抑制</td><td>3F:1.5 能力:1.5 近走:1.3 G1:1.3 勝率:1.2 世論:0.3</td></tr>
+  <tr><td>血統重視</td><td>血統・距離適性を最重視</td><td>血統:2.0 距離:1.3 世論:0.3</td></tr>
+  <tr><td>騎手重視</td><td>騎手・厩舎力を重視</td><td>騎手:2.0 厩舎:1.2 調教:1.2 コース:1.2</td></tr>
+  <tr><td>コース重視</td><td>コース経験・距離適性を最重視</td><td>コース:2.0 距離:1.8 血統:1.3 脚質:1.2 世論:0.3</td></tr>
+  <tr><td>穴馬発掘</td><td>人気薄の好走要因を探す</td><td>3F:2.0 脚質:1.5 調教:1.5 コース:1.5 G1:0.3 世論:0.2</td></tr>
 </table>
 </div>
 
 <!-- ═══════ 5 ═══════ -->
-<h2 id="s5">5. 最終予測結果</h2>
+<h2 id="s5">5. 買い目最適化エンジン v3（バリュー比率ベース）</h2>
 
-<table>
-  <tr><th>順位</th><th>印</th><th>馬名</th><th>騎手</th><th>勝率</th><th>主な強み</th><th>主なリスク</th></tr>
-  <tr class="hi"><td>1</td><td style="color:#dc2626;font-size:1.1em">◎</td><td><strong>クロワデュノール</strong></td><td>北村友一</td><td class="n"><strong>17.4%</strong></td><td>SP指数115最高, G1:4勝, 上がり33.2最速</td><td>中4週3連戦の疲労, 北村友一G1:6勝</td></tr>
-  <tr class="hi"><td>2</td><td style="color:#2563eb;font-size:1.1em">○</td><td><strong>ミュージアムマイル</strong></td><td>D.レーン</td><td class="n"><strong>11.7%</strong></td><td>有馬1着, レーン騎乗, 上がり33.5</td><td>6ヶ月休養明け, 阪神未出走</td></tr>
-  <tr class="hi"><td>3</td><td style="color:#d97706;font-size:1.1em">▲</td><td><strong>ダノンデサイル</strong></td><td>戸崎圭太</td><td class="n"><strong>11.2%</strong></td><td>G1常に3着以内, AJCC阪神2200勝, 対戦成績◎</td><td>勝ち切れない「3着の帝王」</td></tr>
-  <tr class="hi"><td>4</td><td style="color:#6b7280;font-size:1.1em">△</td><td><strong>レガレイラ</strong></td><td>C.ルメール</td><td class="n"><strong>11.0%</strong></td><td>G1:3勝, ルメールG1:48, 上がり33.8</td><td>昨年宝塚11着大敗, 今回は騎手変更(戸崎→ルメール)</td></tr>
-  <tr class="hi"><td>5</td><td style="color:#6b7280;font-size:1.1em">△</td><td><strong>メイショウタバル</strong></td><td>武豊</td><td class="n"><strong>10.2%</strong></td><td>昨年宝塚1着(逃げ切り), 武豊G1:79, 脚質ボーナス+8</td><td>上がり35.8(遅い), 近走不振(有馬13着)</td></tr>
-</table>
-
-<div class="ok">
-  <strong>上位5頭が10.2〜17.4%の接戦</strong>。クロワが頭一つ抜けているが、2-5位は1.5%差の混戦。展開・枠順・当日の馬場で順位変動の余地が大きい。
+<div class="blue">
+<strong>v4.0で全面書き換え。</strong> 旧v3.0のKelly基準+推定オッズ方式を廃止。実オッズ（odds.csv）とAI確率を比較する「バリュー比率」ベースに変更。
 </div>
 
+<h3>5-A. コアコンセプト</h3>
+<div class="f">バリュー比率 = AI確率 / 市場確率 = AI確率 × 実オッズ
+
+例（東京ダービー 2026）:
+  フィンガー:     AI=23.8%, オッズ=4.3x  → 市場23.3% → 比率1.02x → 適正
+  ロウリュ:       AI=10.0%, オッズ=133.6x → 市場0.7%  → 比率13.3x → 狙い目
+  シルバーレシオ:  AI=12.1%, オッズ=1.1x  → 市場90.9% → 比率0.13x → 過大評価</div>
+
+<h3>5-B. 判定ロジック</h3>
+<table>
+  <tr><th>判定</th><th>条件</th><th>意味</th></tr>
+  <tr class="hi"><td><strong>狙い目</strong> (STRONG_BUY)</td><td>バリュー比 ≥ 1.5 かつ AI確率 ≥ 5%</td><td>AIが市場より大幅に高評価。確信度も十分。</td></tr>
+  <tr class="new"><td><strong>妙味あり</strong> (BUY)</td><td>バリュー比 ≥ 1.2 かつ AI確率 ≥ 3%</td><td>AIが市場よりやや高評価。</td></tr>
+  <tr><td>適正 (FAIR)</td><td>0.8 ≤ バリュー比 ≤ 1.2</td><td>AIと市場がほぼ一致。</td></tr>
+  <tr><td><strong>過大評価</strong> (OVERVALUED)</td><td>バリュー比 &lt; 0.8 / AI確率低すぎ</td><td>市場が過大評価。消し。</td></tr>
+</table>
+
+<div class="warn">
+999倍の超不人気馬はAI確率も低い（1-2%）ため、AI確率の閾値フィルタにより買い目候補から自動除外される。「オッズが高い＝期待値が高い」にはならない。
+</div>
+
+<h3>5-C. 6つの最適化モード</h3>
+<table>
+  <tr><th>モード</th><th>内容</th></tr>
+  <tr><td>バリュー分析</td><td>全馬のAI順位 vs 人気順位を比較表示。バリュー比率順にソート。</td></tr>
+  <tr><td>AI最適化</td><td>バリュー馬のみで買い目生成 → ケリー基準で金額配分</td></tr>
+  <tr><td>3パターン比較</td><td>堅実/バランス/大穴の3パターンを横並び比較</td></tr>
+  <tr><td>軸馬流し</td><td>1-2頭を軸に指定 → 相手をAIが選出</td></tr>
+  <tr><td>フォーメーション</td><td>1着/2着/3着候補を個別選択 → 点数+期待値計算</td></tr>
+  <tr><td>ボックス</td><td>N頭BOX → 全組合せ+期待値計算</td></tr>
+</table>
+
 <!-- ═══════ 6 ═══════ -->
-<h2 id="s6">6. 買い目最適化ロジック</h2>
+<h2 id="s6">6. データ自動更新（scheduler_v2）</h2>
+
 <div class="card">
-  <h3>対応馬券（全7種）</h3>
-  <p>単勝 / 複勝 / 馬単 / 馬連 / ワイド / 三連複 / 三連単</p>
+<h3>対応データソース</h3>
+<table>
+  <tr><th>データ</th><th>ソース</th><th>方式</th></tr>
+  <tr><td>天気予報</td><td>Open-Meteo API</td><td>緯度経度→7日間予報（キー不要）</td></tr>
+  <tr><td>JRAオッズ</td><td>netkeiba JRA API</td><td>race_id自動探索 → 出馬表パース → odds API</td></tr>
+  <tr><td>NARオッズ</td><td>netkeiba NAR</td><td>HTMLスクレイピング</td></tr>
+  <tr><td>netkeiba_id</td><td>netkeiba出馬表</td><td>自動取得 → extended_data.csv更新</td></tr>
+</table>
 
-  <h3>5つのモード</h3>
-  <table>
-    <tr><th>モード</th><th>内容</th></tr>
-    <tr><td>3パターン比較</td><td>堅実/バランス/大穴の3パターンを横並び比較</td></tr>
-    <tr><td>AI自動最適化</td><td>リスク×馬券種別でケリー基準ベースの最適配分</td></tr>
-    <tr><td>軸馬流し</td><td>1-2頭を軸に指定→相手をAIが選出</td></tr>
-    <tr><td>フォーメーション</td><td>1着/2着/3着候補を個別選択→点数+回収率計算</td></tr>
-    <tr><td>ボックス</td><td>N頭BOX→全組合せ+回収率計算</td></tr>
-  </table>
+<h3>コマンド</h3>
+<div class="f">python scheduler_v2.py update          # 全レース更新（天気+オッズ+ID）
+python scheduler_v2.py update-odds     # オッズのみ更新
+python scheduler_v2.py update-weather  # 天気のみ更新
+python scheduler_v2.py loop            # 30分間隔で自動更新
+python scheduler_v2.py loop 15         # 15分間隔で自動更新</div>
 
-  <h3>的中確率の計算式</h3>
-  <div class="f">馬連: P(A1着)×P(B2着|A1着) + P(B1着)×P(A2着|B1着)
-ワイド: P(A複勝)×P(B複勝|A複勝) × 補正
-三連複: P(A複)×P(B複)×P(C複) × 組合せ補正
-馬単:  P(A1着)×P(B2着|A1着)  ← 着順固定
-三連単: P(A1着)×P(B2着|A)×P(C3着|A,B)</div>
-
-  <h3>各買い目に表示する情報</h3>
-  <p>金額 / オッズ / 的中率 / <strong>的中時払い戻し額</strong> / 期待値 + 収支シミュレーション</p>
+<h3>Windows自動化</h3>
+<p><code>setup_scheduler.cmd</code> をダブルクリック → Windowsタスクスケジューラに30分間隔（9:00-17:00）で登録。ログは <code>logs/odds_update.log</code></p>
 </div>
 
 <!-- ═══════ 7 ═══════ -->
-<h2 id="s7">7. シミュレーションエンジン</h2>
+<h2 id="s7">7. 馬画像API</h2>
 <div class="card">
-  <div class="f">方式: モンテカルロ法 500回試行
-パラメータ:
-  - base_speed: 0.993〜1.012（G1レベルの僅差）
-  - 脚質(逃げ/先行/差し/追込)×区間(序盤/中盤/終盤)の速度倍率
-  - 当日の調子: normal(0, 0.005) のランダム
-  - 馬群の不利: 中盤区間でランダム発生
-  - ノイズ: normal(0, 0.25) / 区間
-結果: 先頭との相対位置 → Canvas 2Dで60fps描画</div>
+<table>
+  <tr><th>エンドポイント</th><th>説明</th></tr>
+  <tr><td><code>GET /api/horses/{netkeiba_id}/photos</code></td><td>写真ID一覧取得（最大8枚、キャッシュ付き）</td></tr>
+  <tr><td><code>GET /api/horses/{netkeiba_id}/photo/{photo_id}</code></td><td>写真プロキシ（Cache-Control: 24h）</td></tr>
+</table>
+<p>馬詳細ページにて、ヘッダーにメイン写真、プロフィールタブに画像ギャラリー（サムネイル選択式）を表示。</p>
 </div>
 
 <!-- ═══════ 8 ═══════ -->
 <h2 id="s8">8. Webアプリ構成</h2>
 <div class="card">
   <div class="f">keiba_ai/
-├── backend/          FastAPI (Python 3.12)
-│   ├── api/          4 endpoint groups
-│   │   ├── predictions.py   GET /api/predictions
-│   │   ├── simulation.py    POST /api/simulate
-│   │   ├── betting.py       POST /api/betting/{optimize,compare,formation,box,simulate-result}
-│   │   └── data_status.py   GET /api/status
-│   └── core/         predictor.py, simulator.py, optimizer.py
-├── frontend/         React 18 + TypeScript + Vite + Tailwind
-│   └── src/pages/    PredictionTable, RaceSimulation, BettingOptimizer
-├── data/raw/         10 CSV files (100+ race records)
-├── docs/             設計書HTML (this file)
-└── render.yaml       Render deploy config</div>
+├── backend/
+│   ├── main.py              # FastAPI + SPA配信
+│   ├── api/
+│   │   ├── races.py         # レースCRUD + 17カテゴリ特徴量API + 馬画像API
+│   │   ├── betting.py       # 買い目最適化API（バリューベース v3）
+│   │   ├── predictions.py   # 旧予測API
+│   │   ├── simulation.py    # レースシミュレーション
+│   │   └── data_status.py   # データステータス
+│   └── core/
+│       └── optimizer.py     # 買い目最適化エンジン v3（バリュー比率ベース）
+├── frontend/src/
+│   ├── App.tsx              # レース切替 + タブ
+│   └── pages/
+│       ├── PredictionTable.tsx  # 出馬表 + ウェイト調整（17カテゴリ×6プリセット）
+│       ├── HorseDetail.tsx      # 馬詳細（画像ギャラリー付き）
+│       ├── BettingOptimizer.tsx  # 買い目最適化（バリュー分析）
+│       └── RaceSimulation.tsx   # シミュレーション
+├── data/races/{race_id}/    # レース別データ
+├── scheduler_v2.py          # 自動更新（JRA+NAR対応）
+├── update_odds.cmd           # オッズ手動更新
+├── setup_scheduler.cmd       # タスクスケジューラ登録
+└── docs/                    # 設計書</div>
 </div>
 
 <!-- ═══════ 9 ═══════ -->
-<h2 id="s9">9. 残課題・木曜以降のアクション</h2>
+<h2 id="s9">9. v3.0 → v4.0 変更履歴</h2>
 
 <table>
-  <tr><th>タイミング</th><th>アクション</th><th>コマンド / 手順</th></tr>
-  <tr><td>木曜 6/11</td><td>出馬表確定（枠番・馬番・騎手・斤量）</td><td><code>python main.py entries</code> → 自動スクレイピング</td></tr>
-  <tr><td>木曜 6/11</td><td>枠番バイアス反映</td><td>枠番確定後にLightGBMアンサンブル予測に切替</td></tr>
-  <tr><td>金曜 6/12</td><td>前日オッズ取得</td><td><code>python main.py odds</code> → 期待値計算が有効に</td></tr>
-  <tr><td>金曜 6/12</td><td>最終追い切り反映</td><td>調教データ更新</td></tr>
-  <tr><td>土曜 6/13</td><td>天気予報更新</td><td><code>python main.py weather</code></td></tr>
-  <tr><td>日曜 6/14 朝</td><td>当日馬体重・パドック</td><td>手動入力 → 最終予測実行</td></tr>
-  <tr><td>日曜 6/14 15:00</td><td>直前オッズ</td><td>最終買い目決定</td></tr>
+  <tr><th>変更点</th><th>v3.0</th><th>v4.0</th></tr>
+  <tr><td>カテゴリ数</td><td>23（一部未実装）</td><td><strong>17</strong>（全実装、0固定なし）</td></tr>
+  <tr><td>距離適性</td><td>0固定</td><td>過去走±400m好走率から計算</td></tr>
+  <tr><td>通算勝率</td><td>消滅</td><td><span class="tag tg">復活</span></td></tr>
+  <tr><td>コース経験</td><td>宝塚限定→消滅</td><td><span class="tag tg">汎用化して復活</span></td></tr>
+  <tr><td>世論</td><td>YT×2+News×2（max180）</td><td>YT×0.5+News×0.5（max20に制限）</td></tr>
+  <tr><td>血統</td><td>距離×30+場×20</td><td>距離×10+場×8+重馬場×5</td></tr>
+  <tr><td>対戦成績</td><td>常に0（バグ）</td><td>wins/totalから計算</td></tr>
+  <tr><td>買い目最適化</td><td>Kelly基準+推定オッズ</td><td>バリュー比率ベース</td></tr>
+  <tr><td>オッズ取得</td><td>NARのみ</td><td>JRA+NAR両対応</td></tr>
+  <tr><td>馬画像</td><td>なし</td><td>netkeibaプロキシ（最大8枚）</td></tr>
+  <tr><td>プリセット</td><td>3種</td><td>6種</td></tr>
+  <tr><td>確率正規化</td><td>全馬同スコア時に0%</td><td>等確率(1/N)にフォールバック</td></tr>
 </table>
-
-<div class="blue">
-  <strong>定期実行</strong>: <code>python scheduler.py start</code> でレース当日まで自動データ収集。木曜以降は2時間ごと、当日は15分ごと。
-</div>
 
 </div>
 <footer>
-  競馬予想AI 最終設計書 v3.0 | 2026-06-09 17:00 | 65特徴量 × 18頭 × 23スコアカテゴリ
+  競馬予想AI 最終設計書 v4.0 | 2026-06-10 | 17カテゴリ × 汎用マルチレース対応
 </footer>
 </body>
 </html>

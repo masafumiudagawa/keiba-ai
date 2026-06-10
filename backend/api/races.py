@@ -174,6 +174,20 @@ def get_features(race_id: str):
         last1 = float(fp.iloc[0]) if len(fp) > 0 else 18
         last2 = float(fp.iloc[1]) if len(fp) > 1 else 18
 
+        # 通算勝率
+        career_win_rate = career_wins / max(career_runs, 1)
+
+        # コース経験: 今回と同じ競馬場での過去走
+        race_venue = config.get("venue", "")
+        venue_exp = 0.0
+        if not h.empty and "venue" in h.columns and race_venue:
+            venue_runs = h[h["venue"] == race_venue]
+            if len(venue_runs) > 0:
+                v_fp = pd.to_numeric(venue_runs["finish_position"], errors="coerce").dropna()
+                if len(v_fp) > 0:
+                    v_wr = float((v_fp <= 3).sum()) / len(v_fp)
+                    venue_exp = v_wr * 10 + min(len(v_fp), 5) * 1.5
+
         # 拡張データ
         ext = extended[extended["horse_name"] == name].iloc[0].to_dict() if not extended.empty and name in extended["horse_name"].values else {}
         best3f = float(ext.get("best_last3f", 0) or 0)
@@ -280,12 +294,14 @@ def get_features(race_id: str):
                 "age": float(age_bias.get(str(age), 0)),
                 "recent_form": (18 - min(max(last1, 1), 18)) * 1.5 + (18 - min(max(last2, 1), 18)) * 0.8,
                 "g1_record": float(np.log1p(g1_wins) * 15 + g1_place * 5),
+                "career_win_rate": round(career_win_rate * 15, 1),
                 "distance_aptitude": round(dist_apt, 1),
+                "venue_experience": round(venue_exp, 1),
                 "jockey": float(np.log1p(j_g1) * 4.5 + j_wr * 25),
                 "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,
                 "speed_figure": float((speed - 90) * 1.5) if speed > 0 else 0,
-                "pedigree": float(ext.get("sire_turf2200_winrate", 0) or 0) * 10 + float(ext.get("sire_hanshin_winrate", 0) or 0) * 8,
-                "public_opinion": yt_score * 2 + news_score * 2,
+                "pedigree": float(ext.get("sire_turf2200_winrate", 0) or 0) * 10 + float(ext.get("sire_hanshin_winrate", 0) or 0) * 8 + float(ext.get("sire_heavy_winrate", 0) or 0) * 5,
+                "public_opinion": min(yt_score * 0.5 + news_score * 0.5, 20),
                 "training": (train_val - 3) * 5,
                 "running_style": float(style_bias.get(style_name, 0)),
                 "head_to_head": (int(ext.get("head2head_wins", 0) or 0) / max(int(ext.get("head2head_total", 0) or 0), 1)) * 15 if int(ext.get("head2head_total", 0) or 0) > 0 else 0,

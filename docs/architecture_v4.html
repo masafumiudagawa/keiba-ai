@@ -92,7 +92,7 @@ keiba_ai/
 </pre>
 
 <!-- ============================================ -->
-<h2>2. スコアリングエンジン（15カテゴリ）</h2>
+<h2>2. スコアリングエンジン（17カテゴリ）</h2>
 
 <p>全馬のスコアは <code>GET /api/races/{race_id}/features</code> で返される。
 フロントエンドでウェイト乗算 → 合計 → 正規化 → 確率算出をリアルタイムに行う。</p>
@@ -101,34 +101,37 @@ keiba_ai/
 <table>
 <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算ロジック</th><th>スコア範囲(目安)</th></tr>
 <tr><td>1</td><td>馬齢</td><td>age</td><td>config.trends.age_bias[年齢]（例: 4歳=20, 5歳=25, 6歳=8）</td><td>0-25</td></tr>
-<tr><td>2</td><td>近走成績</td><td>recent_form</td><td>(18-前走着順)*1.5 + (18-前々走着順)*0.8</td><td>0-41</td></tr>
-<tr><td>3</td><td>G1実績</td><td>g1_record</td><td>log(1+G1勝数)*15 + G1複勝回数*5</td><td>0-50+</td></tr>
-<tr><td>4</td><td><span class="badge badge-green">距離適性</span></td><td>distance_aptitude</td><td>レース距離±400m・同馬場の過去走で好走率*20 + (10-平均着順)*1.5 + 経験値ボーナス</td><td>0-40</td></tr>
-<tr><td>5</td><td>騎手力</td><td>jockey</td><td>log(1+G1勝数)*4.5 + 2026年勝率*25</td><td>0-30</td></tr>
-<tr><td>6</td><td>上がり3F</td><td>last_3f</td><td>(37-best_last3f)*5（32〜37秒でクリップ）</td><td>0-25</td></tr>
-<tr><td>7</td><td>能力値</td><td>speed_figure</td><td>(speed_figure-90)*1.5</td><td>0-40</td></tr>
-<tr><td>8</td><td>血統適性</td><td>pedigree</td><td>父の距離勝率*30 + 父の競馬場勝率*20</td><td>0-15</td></tr>
-<tr><td>9</td><td>世論</td><td>public_opinion</td><td>YouTube評価*2 + ニュース評価*2</td><td>0-20</td></tr>
-<tr><td>10</td><td>調教</td><td>training</td><td>(調教強度-3)*5（1-5段階）</td><td>-10〜10</td></tr>
-<tr><td>11</td><td>脚質</td><td>running_style</td><td>config.trends.style_bias[脚質]（逃げ=8, 先行=5, 差し=2, 追込=0）</td><td>0-8</td></tr>
-<tr><td>12</td><td>対戦成績</td><td>head_to_head</td><td>対戦勝率*15（対戦データあり時のみ）</td><td>0-15</td></tr>
-<tr><td>13</td><td>休養</td><td>rest</td><td>good=6, ok=3, poor=0</td><td>0-6</td></tr>
-<tr><td>14</td><td>厩舎</td><td>trainer</td><td>log(1+厩舎G1勝数)*3</td><td>0-8</td></tr>
-<tr><td>15</td><td>体重推移</td><td>weight_trend</td><td>stable=4, increasing=2, decreasing=0</td><td>0-4</td></tr>
+<tr><td>2</td><td>近走成績</td><td>recent_form</td><td>(18-前走着順)*1.5 + (18-前々走着順)*0.8</td><td>0-39</td></tr>
+<tr><td>3</td><td>G1実績</td><td>g1_record</td><td>log(1+G1勝数)*15 + G1複勝回数*5</td><td>0-50</td></tr>
+<tr><td>4</td><td>通算勝率</td><td>career_win_rate</td><td>通算勝率 × 15</td><td>0-15</td></tr>
+<tr><td>5</td><td>距離適性</td><td>distance_aptitude</td><td>レース距離±400m・同馬場の過去走で好走率*20 + (10-平均着順)*1.5 + 経験値ボーナス</td><td>0-40</td></tr>
+<tr><td>6</td><td>コース経験</td><td>venue_experience</td><td>同競馬場の好走率×10 + min(出走数,5)×1.5</td><td>0-18</td></tr>
+<tr><td>7</td><td>騎手力</td><td>jockey</td><td>log(1+G1勝数)*4.5 + 2026年勝率*25</td><td>0-25</td></tr>
+<tr><td>8</td><td>上がり3F</td><td>last_3f</td><td>(37-best_last3f)*5（32〜37秒でクリップ）</td><td>0-25</td></tr>
+<tr><td>9</td><td>能力値</td><td>speed_figure</td><td>(speed_figure-90)*1.5</td><td>0-40</td></tr>
+<tr><td>10</td><td>血統適性</td><td>pedigree</td><td>父の距離勝率*10 + 父の競馬場勝率*8 + 父の重馬場勝率*5</td><td>0-15</td></tr>
+<tr><td>11</td><td>世論</td><td>public_opinion</td><td>min(YouTube*0.5 + ニュース*0.5, 20)</td><td>0-20</td></tr>
+<tr><td>12</td><td>調教</td><td>training</td><td>(調教強度-3)*5（1-5段階）</td><td>-10〜10</td></tr>
+<tr><td>13</td><td>脚質</td><td>running_style</td><td>config.trends.style_bias[脚質]（逃げ=8, 先行=5, 差し=2, 追込=0）</td><td>0-8</td></tr>
+<tr><td>14</td><td>対戦成績</td><td>head_to_head</td><td>(対戦勝数/対戦総数)*15</td><td>0-15</td></tr>
+<tr><td>15</td><td>休養</td><td>rest</td><td>good=6, ok=3, poor=0</td><td>0-6</td></tr>
+<tr><td>16</td><td>厩舎</td><td>trainer</td><td>log(1+厩舎G1勝数)*3</td><td>0-8</td></tr>
+<tr><td>17</td><td>体重推移</td><td>weight_trend</td><td>stable=4, increasing=2, decreasing=0</td><td>0-4</td></tr>
 </table>
 
 <h3>2-2. ウェイト調整UI</h3>
 <p>フロントエンド（PredictionTable.tsx）にて、各カテゴリのウェイトを0.0〜2.0のスライダーで調整可能。
 合計スコアはリアルタイムに再計算され、順位が動的に変わる。</p>
 
-<h4>プリセット（5種）</h4>
+<h4>プリセット（6種）</h4>
 <table>
 <tr><th>名称</th><th>特徴</th><th>主な増減</th></tr>
 <tr><td>標準</td><td>全カテゴリ 1.0x</td><td>-</td></tr>
-<tr><td>データ重視</td><td>数値データを重視</td><td>3F:1.5 能力:1.5 近走:1.3 G1:1.3 世論:0.3</td></tr>
+<tr><td>データ重視</td><td>数値データを重視</td><td>3F:1.5 能力:1.5 近走:1.3 G1:1.3 勝率:1.2 世論:0.3</td></tr>
 <tr><td>血統重視</td><td>血統適性を最重視</td><td>血統:2.0 距離:1.3 世論:0.3</td></tr>
-<tr><td>騎手重視</td><td>騎手・厩舎力を重視</td><td>騎手:2.0 厩舎:1.2 調教:1.2</td></tr>
-<tr><td>穴馬発掘</td><td>人気薄の好走要因を探す</td><td>3F:2.0 能力:1.5 調教:1.5 脚質:1.5 G1:0.3 世論:0.2</td></tr>
+<tr><td>騎手重視</td><td>騎手・厩舎力を重視</td><td>騎手:2.0 厩舎:1.2 調教:1.2 コース:1.2</td></tr>
+<tr><td>コース重視</td><td>コース・距離適性を最重視</td><td>コース:2.0 距離:1.8 血統:1.3 脚質:1.2 世論:0.3</td></tr>
+<tr><td>穴馬発掘</td><td>人気薄の好走要因を探す</td><td>3F:2.0 脚質:1.5 調教:1.5 コース:1.5 G1:0.3 世論:0.2</td></tr>
 </table>
 
 <!-- ============================================ -->
