@@ -82,9 +82,11 @@ def update_weather(race: dict):
         precip = d.get("precipitation_sum", [0])[0] or 0
         prob = d.get("precipitation_probability_max", [0])[0] or 0
 
-        if precip >= 20 or prob >= 80: condition = "不良"
-        elif precip >= 5 or prob >= 60: condition = "重"
-        elif precip >= 1 or prob >= 40: condition = "稍重"
+        # 馬場予測: 降水量を最優先、確率は補助（降水量0なら確率が高くても良馬場）
+        if precip >= 20: condition = "不良"
+        elif precip >= 8: condition = "重"
+        elif precip >= 3: condition = "稍重"
+        elif precip >= 1 and prob >= 60: condition = "稍重"
         else: condition = "良"
 
         weather = {
@@ -439,6 +441,13 @@ def update_all():
         update_horse_ids(race)
         update_weather(race)
         update_odds(race)
+
+    # Renderのスリープ防止（無料プランは15分放置でスリープ）
+    try:
+        r = requests.get("https://keiba-ai-0tll.onrender.com/api/health", timeout=15)
+        log.info(f"  Render keep-alive: {r.status_code}")
+    except Exception:
+        pass
 
     log.info("\n=== データ更新完了 ===")
 
