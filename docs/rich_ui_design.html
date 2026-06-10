@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リッチUI設計書 - netkeiba風の出馬表</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;line-height:1.7;font-size:14px}.c{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.6rem;color:#1e3a5f;margin-bottom:4px}h2{font-size:1.2rem;color:#1e3a5f;border-left:4px solid #2563eb;padding-left:10px;margin:24px 0 10px}h3{font-size:.95rem;color:#334155;margin:14px 0 6px}.sub{color:#64748b;margin-bottom:20px;font-size:.85rem}table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.8rem}th{background:#1e3a5f;color:#fff;padding:5px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #e2e8f0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}.f{background:#1e293b;color:#e2e8f0;padding:10px 14px;border-radius:6px;font-family:Consolas,monospace;font-size:.78rem;margin:8px 0;overflow-x:auto;white-space:pre}.ok{background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:8px 0;font-size:.82rem}.warn{background:#fffbeb;border-left:3px solid #f59e0b;padding:8px 12px;margin:8px 0;font-size:.82rem}.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+  .waku{display:inline-block;width:24px;height:24px;border-radius:4px;text-align:center;font-weight:700;font-size:12px;line-height:24px;color:#fff;margin-right:4px}
+  .w1{background:#fff;color:#333;border:1px solid #ccc}.w2{background:#111}.w3{background:#dc2626}.w4{background:#2563eb}.w5{background:#eab308;color:#333}.w6{background:#16a34a}.w7{background:#ea580c}.w8{background:#db2777}
+  footer{text-align:center;color:#94a3b8;padding:20px;font-size:.75rem}
+</style>
+</head>
+<body>
+<div class="c">
+
+<h1>リッチUI設計書 - netkeiba風の出馬表</h1>
+<p class="sub">現状 → 目標のギャップ分析 + 実装計画 | 2026-06-10</p>
+
+<h2>1. 現状 vs 目標</h2>
+
+<table>
+  <tr><th>要素</th><th>現在のUI</th><th>netkeiba</th><th>対応</th></tr>
+  <tr><td>枠色</td><td>なし</td><td>枠番に応じた色帯<br><span class="waku w1">1</span><span class="waku w2">2</span><span class="waku w3">3</span><span class="waku w4">4</span><span class="waku w5">5</span><span class="waku w6">6</span><span class="waku w7">7</span><span class="waku w8">8</span></td><td>FE追加のみ</td></tr>
+  <tr><td>馬番</td><td>なし（データはある）</td><td>枠色の中に馬番表示</td><td>FE追加のみ</td></tr>
+  <tr><td>馬名+性齢</td><td>あり</td><td>リンク付き太字+性齢</td><td>済</td></tr>
+  <tr><td>騎手名</td><td>あり</td><td>乗り替わりマーク</td><td>済</td></tr>
+  <tr><td>オッズ+人気</td><td>オッズのみ</td><td>オッズ+人気バッジ</td><td>FE修正</td></tr>
+  <tr><td>血統（父/母父）</td><td>父のみ表示</td><td>父+母父</td><td>BE:dam_sire追加</td></tr>
+  <tr><td>調教師名</td><td>なし</td><td>厩舎名表示</td><td>BE:trainer追加</td></tr>
+  <tr><td>馬体重+増減</td><td>なし</td><td>500(+4)形式</td><td>BE:weight追加</td></tr>
+  <tr><td>過去5走成績</td><td>展開内に前走のみ</td><td>直近5走の馬柱</td><td>BE:historyを返す</td></tr>
+  <tr><td>脚質アイコン</td><td>展開内テキスト</td><td>逃/先/差/追のアイコン</td><td>FE追加</td></tr>
+  <tr><td>馬の写真</td><td>なし</td><td>競走馬写真</td><td>外部画像URL</td></tr>
+  <tr><td>印（◎○▲△）</td><td>AI予測のみ</td><td>新聞各紙の印</td><td>済（AI印）</td></tr>
+</table>
+
+<h2>2. 実装する項目と手順</h2>
+
+<h3>Step 1: バックエンドのデータ追加（APIレスポンス拡充）</h3>
+<div class="card">
+  <p>features APIに以下を追加:</p>
+  <div class="f">horse = {
+  // 既存
+  "horse_name", "jockey", "age", "sex", "sire", "career",
+  "scores": {...}, "raw": {...},
+
+  // 追加
+  "gate_number": 12,           // 馬番
+  "post_position": 6,          // 枠番
+  "dam_sire": "Maclean's Music", // 母父
+  "trainer": "田中博康",        // 調教師
+  "weight": "554(+8)",         // 馬体重(増減)
+  "running_style_label": "逃げ", // 脚質ラベル
+  "recent_5": [                // 直近5走の簡易成績
+    {"date":"4/29", "venue":"大井", "race":"羽田盃", "dist":1800, "finish":1, "odds":2.1},
+    {"date":"3/18", "venue":"大井", "race":"京浜盃", "dist":1700, "finish":2, "odds":3.5},
+    ...
+  ]
+}</div>
+</div>
+
+<h3>Step 2: フロントエンドUI（netkeiba風レイアウト）</h3>
+<div class="card">
+  <h3>PC版テーブル（1行1馬）</h3>
+  <div class="f">┌────┬────┬─────────────────────┬──────┬──────┬──────┬───────────────────┐
+│枠色│馬番│ 馬名         性齢  │ 騎手 │ オッズ│ 人気 │ 直近5走            │
+│    │    │ 父×母父           │      │      │      │ 1着 2着 3着 着 着  │
+│    │    │ 調教師 / 馬体重    │      │      │      │                   │
+├────┼────┼─────────────────────┼──────┼──────┼──────┼───────────────────┤
+│ 6  │ 12 │ フィンガー    牡3  │ 戸崎 │ 1.6  │  1   │ ①②①①④         │
+│    │    │ Gun Runner×Maclean │圭太  │      │      │ 羽京ブ未新         │
+│    │    │ 田中博康 554(+8)   │      │      │      │                   │
+└────┴────┴─────────────────────┴──────┴──────┴──────┴───────────────────┘</div>
+
+  <h3>スマホ版カード</h3>
+  <div class="f">┌──────────────────────────────────┐
+│ [6枠] 12 フィンガー 牡3  1.6倍 │
+│ 戸崎圭太 / Gun Runner        1人気│
+│ ■■■■■■■■■■░░░ 17.4%        │
+│ 直近: ①②①①④              │
+│ 田中博康 554(+8) 能力112     │
+└──────────────────────────────────┘</div>
+</div>
+
+<h3>Step 3: 馬の画像</h3>
+<div class="card">
+  <p>netkeibaの馬画像は著作権の問題がある。代替案:</p>
+  <ul>
+    <li><strong>案A</strong>: 枠色+馬番の大きなバッジで代替（現実的）</li>
+    <li><strong>案B</strong>: 勝負服のイラスト生成（SVG）</li>
+    <li><strong>案C</strong>: netkeiba馬ページへのリンクを設置</li>
+  </ul>
+  <div class="ok">案A（枠色バッジ）+ 案C（外部リンク）の組み合わせが最も現実的。著作権問題なし。</div>
+</div>
+
+<h2>3. 過去5走の馬柱デザイン</h2>
+<div class="card">
+  <p>netkeiba風の「着順のカラーコード」:</p>
+  <div style="display:flex;gap:4px;margin:8px 0">
+    <span style="background:#dc2626;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">1</span>
+    <span style="background:#2563eb;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">2</span>
+    <span style="background:#16a34a;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">3</span>
+    <span style="background:#94a3b8;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">5</span>
+    <span style="background:#94a3b8;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">8</span>
+  </div>
+  <p>1着=赤、2着=青、3着=緑、4着以下=グレー。下に「レース略称」を表示。</p>
+</div>
+
+<h2>4. 枠色の定義</h2>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin:8px 0">
+  <div><span class="waku w1">1</span> 白</div>
+  <div><span class="waku w2">2</span> 黒</div>
+  <div><span class="waku w3">3</span> 赤</div>
+  <div><span class="waku w4">4</span> 青</div>
+  <div><span class="waku w5">5</span> 黄</div>
+  <div><span class="waku w6">6</span> 緑</div>
+  <div><span class="waku w7">7</span> 橙</div>
+  <div><span class="waku w8">8</span> 桃</div>
+</div>
+
+<h2>5. 実装順</h2>
+<table>
+  <tr><th>#</th><th>タスク</th><th>対象</th><th>規模</th></tr>
+  <tr><td>1</td><td>APIにgate_number/post_position/dam_sire/trainer/weight/recent_5を追加</td><td>BE</td><td>中</td></tr>
+  <tr><td>2</td><td>PC版テーブルを枠色+馬番+血統+調教師+馬体重+過去5走に改修</td><td>FE</td><td>大</td></tr>
+  <tr><td>3</td><td>スマホ版カードも同様にリッチ化</td><td>FE</td><td>大</td></tr>
+  <tr><td>4</td><td>netkeiba馬ページへの外部リンク追加</td><td>FE</td><td>小</td></tr>
+</table>
+
+</div>
+<footer>リッチUI設計書 v1.0 | 2026-06-10</footer>
+</body>
+</html>

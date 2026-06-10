@@ -198,6 +198,43 @@ def get_features(race_id: str):
         if not training.empty and name in training["horse_name"].values:
             train_val = float(training[training["horse_name"] == name].iloc[0].get("training_intensity", 3) or 3)
 
+        # 直近5走の馬柱データ
+        import math
+        recent_5 = []
+        if not h.empty:
+            for _, race in h.head(5).iterrows():
+                r_date = str(race.get("race_date", ""))
+                if "/" in r_date:
+                    parts = r_date.split("/")
+                    r_date = f"{parts[1]}/{parts[2]}" if len(parts) >= 3 else r_date
+                r_finish = race.get("finish_position", "")
+                try:
+                    r_finish = int(float(r_finish)) if not (isinstance(r_finish, float) and math.isnan(r_finish)) else ""
+                except (ValueError, TypeError):
+                    r_finish = ""
+                recent_5.append({
+                    "date": r_date,
+                    "venue": str(race.get("venue", "")),
+                    "race": str(race.get("race_name", ""))[:6],
+                    "dist": int(float(race.get("distance", 0) or 0)),
+                    "finish": r_finish,
+                    "grade": str(race.get("grade", "")),
+                })
+
+        # 枠番・馬番
+        import math as _math
+        def _si(v, d=0):
+            if v is None: return d
+            try:
+                f = float(v)
+                return d if _math.isnan(f) else int(f)
+            except: return d
+
+        gate_num = _si(e.get("gate_number"))
+        post_pos = _si(e.get("post_position"))
+
+        style_labels = {"nige": "逃げ", "senko": "先行", "sashi": "差し", "oikomi": "追込"}
+
         # 各カテゴリの生スコア（ウェイト1.0x時の値）
         horse = {
             "horse_name": name,
@@ -205,7 +242,14 @@ def get_features(race_id: str):
             "age": age,
             "sex": str(e.get("sex", "")),
             "sire": str(e.get("sire", ext.get("sire", ""))),
+            "dam_sire": str(ext.get("dam_sire", "")),
+            "trainer": str(ext.get("trainer", "")),
+            "gate_number": gate_num,
+            "post_position": post_pos,
+            "weight": str(ext.get("best_weight", "")),
+            "running_style_label": style_labels.get(style_name, ""),
             "career": f"{career_runs}走{career_wins}勝",
+            "recent_5": recent_5,
             "scores": {
                 "age": float(age_bias.get(str(age), 0)),
                 "recent_form": (18 - min(max(last1, 1), 18)) * 1.5 + (18 - min(max(last2, 1), 18)) * 0.8,
