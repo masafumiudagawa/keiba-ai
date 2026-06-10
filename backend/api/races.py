@@ -219,6 +219,9 @@ def get_features(race_id: str):
                     "dist": int(float(race.get("distance", 0) or 0)),
                     "finish": r_finish,
                     "grade": str(race.get("grade", "")),
+                    "time": str(race.get("finish_time", "")),
+                    "last3f": str(race.get("last_3f", "")),
+                    "passing": str(ext.get("passing_pattern", "")),
                 })
 
         # 枠番・馬番
@@ -249,6 +252,11 @@ def get_features(race_id: str):
             "weight": str(ext.get("best_weight", "")),
             "running_style_label": style_labels.get(style_name, ""),
             "career": f"{career_runs}走{career_wins}勝",
+            "owner": str(ext.get("owner", "")),
+            "coat_color": str(ext.get("coat_color", "")),
+            "english_name": str(ext.get("english_name", "")),
+            "total_prize": str(ext.get("total_prize", "")),
+            "netkeiba_id": str(ext.get("netkeiba_id", "")),
             "recent_5": recent_5,
             "scores": {
                 "age": float(age_bias.get(str(age), 0)),

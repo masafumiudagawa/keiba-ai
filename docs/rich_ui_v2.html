@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リッチUI v2設計 - netkeiba完全対標</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;line-height:1.7;font-size:14px}.c{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.5rem;color:#1e3a5f;margin-bottom:4px}h2{font-size:1.15rem;color:#1e3a5f;border-left:4px solid #2563eb;padding-left:10px;margin:24px 0 10px}h3{font-size:.9rem;color:#334155;margin:12px 0 6px}.sub{color:#64748b;margin-bottom:20px;font-size:.85rem}table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.8rem}th{background:#1e3a5f;color:#fff;padding:5px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #e2e8f0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:8px 0}.f{background:#1e293b;color:#e2e8f0;padding:10px 14px;border-radius:6px;font-family:Consolas,monospace;font-size:.75rem;margin:8px 0;overflow-x:auto;white-space:pre}.ok{background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:6px 0;font-size:.82rem}.warn{background:#fffbeb;border-left:3px solid #f59e0b;padding:8px 12px;margin:6px 0;font-size:.82rem}.blue{background:#eff6ff;border-left:3px solid #2563eb;padding:8px 12px;margin:6px 0;font-size:.82rem}footer{text-align:center;color:#94a3b8;padding:20px;font-size:.75rem}
+</style>
+</head>
+<body>
+<div class="c">
+
+<h1>リッチUI v2 - netkeiba完全対標</h1>
+<p class="sub">現在23項目済 / 15項目未対応 → 優先度別に実装計画 | 2026-06-10</p>
+
+<!-- ═══════ 現状 ═══════ -->
+<h2>1. 現在の対応状況（23/38項目）</h2>
+<table>
+  <tr><th>カテゴリ</th><th>項目</th><th>状態</th><th>表示場所</th></tr>
+  <tr><td rowspan="7">馬基本</td><td>馬名+性齢</td><td style="color:green">済</td><td>テーブル/カード</td></tr>
+  <tr><td>枠番+馬番（枠色バッジ）</td><td style="color:green">済</td><td>テーブル/カード</td></tr>
+  <tr><td>父（sire）</td><td style="color:green">済</td><td>テーブル内</td></tr>
+  <tr><td>母父（dam_sire）</td><td style="color:green">済</td><td>テーブル内</td></tr>
+  <tr><td>調教師名</td><td style="color:green">済</td><td>テーブル内</td></tr>
+  <tr><td>馬体重</td><td style="color:green">済</td><td>テーブル内</td></tr>
+  <tr><td>脚質ラベル（逃/先/差/追）</td><td style="color:green">済</td><td>タグ表示</td></tr>
+  <tr><td rowspan="3">騎手</td><td>騎手名</td><td style="color:green">済</td><td>テーブル</td></tr>
+  <tr><td>騎手G1勝数</td><td style="color:green">済</td><td>スコア内</td></tr>
+  <tr><td>騎手シーズン勝率</td><td style="color:green">済</td><td>スコア内</td></tr>
+  <tr><td rowspan="4">成績</td><td>戦績（N走N勝）</td><td style="color:green">済</td><td>テーブル内</td></tr>
+  <tr><td>直近5走着順（馬柱）</td><td style="color:green">済</td><td>着順ドット</td></tr>
+  <tr><td>G1勝利数</td><td style="color:green">済</td><td>テーブル列</td></tr>
+  <tr><td>上がり3F/能力値</td><td style="color:green">済</td><td>テーブル列</td></tr>
+  <tr><td rowspan="2">オッズ</td><td>単勝オッズ</td><td style="color:green">済</td><td>テーブル列</td></tr>
+  <tr><td>人気順</td><td style="color:green">済</td><td>バッジ表示</td></tr>
+  <tr><td rowspan="3">レース情報</td><td>天気予報</td><td style="color:green">済</td><td>上部バー</td></tr>
+  <tr><td>馬場状態予測</td><td style="color:green">済</td><td>上部バー（色分け）</td></tr>
+  <tr><td>レース基本情報</td><td style="color:green">済</td><td>上部バー</td></tr>
+  <tr><td rowspan="4">AI独自</td><td>勝率（確率）</td><td style="color:green">済</td><td>テーブル+バー</td></tr>
+  <tr><td>AI印（◎○▲△）</td><td style="color:green">済</td><td>テーブル</td></tr>
+  <tr><td>スコア内訳（14カテゴリ）</td><td style="color:green">済</td><td>展開行</td></tr>
+  <tr><td>ウェイト調整スライダー</td><td style="color:green">済</td><td>パネル</td></tr>
+</table>
+
+<!-- ═══════ 追加項目 ═══════ -->
+<h2>2. 追加する項目（15項目 → 優先度順）</h2>
+
+<table>
+  <tr><th>優先度</th><th>項目</th><th>実装方法</th><th>効果</th></tr>
+  <tr style="background:#f0fdf4"><td>★★★</td><td><strong>馬の画像/外部リンク</strong></td><td>netkeibaの馬ページへのリンクボタン。馬名クリックで新タブオープン。</td><td>ユーザーが詳細を確認できる</td></tr>
+  <tr style="background:#f0fdf4"><td>★★★</td><td><strong>前走の詳細（タイム/着差/上がり3F）</strong></td><td>recent_5にfinish_time, margin, last_3fを追加</td><td>馬柱の情報量アップ</td></tr>
+  <tr style="background:#f0fdf4"><td>★★★</td><td><strong>通過順位</strong></td><td>recent_5にpassing_orderを追加（例: "3-3-2-1"）</td><td>脚質の裏付けデータ</td></tr>
+  <tr style="background:#eff6ff"><td>★★</td><td><strong>馬主名</strong></td><td>extended_dataに列追加</td><td></td></tr>
+  <tr style="background:#eff6ff"><td>★★</td><td><strong>獲得賞金</strong></td><td>extended_dataに列追加</td><td>実力のバロメーター</td></tr>
+  <tr style="background:#eff6ff"><td>★★</td><td><strong>毛色</strong></td><td>extended_dataに列追加（鹿毛/栗毛/黒鹿毛/芦毛等）</td><td></td></tr>
+  <tr style="background:#eff6ff"><td>★★</td><td><strong>前走のオッズ/人気</strong></td><td>recent_5に追加</td><td>人気の変動が見える</td></tr>
+  <tr style="background:#eff6ff"><td>★★</td><td><strong>勝負服アイコン</strong></td><td>枠色バッジを勝負服風に装飾（帽子+胴の2色）</td><td>視覚的な識別性UP</td></tr>
+  <tr><td>★</td><td>英語名</td><td>extended_dataに列追加</td><td></td></tr>
+  <tr><td>★</td><td>生年月日</td><td>extended_dataに列追加</td><td></td></tr>
+  <tr><td>★</td><td>生産者</td><td>extended_dataに列追加</td><td></td></tr>
+  <tr><td>★</td><td>新聞各紙の印</td><td>news.csvから◎○▲△を集計して表示</td><td></td></tr>
+  <tr><td>★</td><td>予想家コメント</td><td>APIで別途取得</td><td></td></tr>
+  <tr><td>★</td><td>相性度/信頼度</td><td>AI指数の分解表示で代替（済）</td><td></td></tr>
+  <tr><td>★</td><td>賞金順</td><td>賞金データから算出</td><td></td></tr>
+</table>
+
+<!-- ═══════ 画面設計 ═══════ -->
+<h2>3. 改修後の画面設計</h2>
+
+<h3>3-1. PC版（1行1馬 → 馬柱つき）</h3>
+<div class="card">
+<div class="f">┌──┬──┬──────────────────┬─────┬──────┬─────┬──────────────────────────────┐
+│枠│番│ 馬名        牡3  │騎手 │ ｵｯｽﾞ │AI勝率│  直近5走                      │
+│色│  │ ↗netkeiba       │     │ N人気│      │  着 タイム 上3F 通過   レース │
+│  │  │ 父×母父         │     │      │      │  ① 1:52.7 37.2 1-1-1  羽田盃 │
+│  │  │ 調教師 馬主      │     │      │      │  ② ---    38.0 3-3-2  京浜盃 │
+│  │  │ 554kg 逃げ 3勝   │     │      │      │  ① ---    37.5 1-1-1  ﾌﾞﾙｰBC │
+└──┴──┴──────────────────┴─────┴──────┴─────┴──────────────────────────────┘</div>
+</div>
+
+<h3>3-2. スマホ版（カード → PC情報の縮約版）</h3>
+<div class="card">
+<div class="f">┌────────────────────────────────────┐
+│ [6枠12] ◎ フィンガー 牡3 ↗     │  ← netkeibaリンク
+│ 戸崎圭太 / Gun Runner×Maclean   │
+│ 田中博康 554kg [逃げ]  3走3勝    │
+│                                  │
+│ 1.6倍 1人気 │ AI勝率 25.3%      │
+│ ■■■■■■■■■■■░░░░              │
+│                                  │
+│ 近走: ①羽田盃 ②京浜盃 ①ﾌﾞﾙｰBC │
+│       37.2   38.0   37.5        │  ← 上がり3F
+│       1-1-1  3-3-2  1-1-1      │  ← 通過順
+│                                  │
+│ [タップで詳細展開]                │
+└────────────────────────────────────┘</div>
+</div>
+
+<!-- ═══════ 実装手順 ═══════ -->
+<h2>4. 実装手順</h2>
+
+<table>
+  <tr><th>#</th><th>タスク</th><th>対象</th></tr>
+  <tr><td>1</td><td><strong>extended_dataに馬主/毛色/英名/賞金を追加</strong>（CSV更新）</td><td>データ</td></tr>
+  <tr><td>2</td><td><strong>recent_5にfinish_time/last_3f/passing_order/oddsを追加</strong>（BE: races.py）</td><td>BE</td></tr>
+  <tr><td>3</td><td><strong>netkeibaリンクボタン追加</strong>（馬名横に↗アイコン）</td><td>FE</td></tr>
+  <tr><td>4</td><td><strong>PC版テーブルに馬柱詳細（タイム/上がり/通過順）追加</strong></td><td>FE</td></tr>
+  <tr><td>5</td><td><strong>スマホカードにPC同等の情報を表示</strong>（折りたたみなしで全表示）</td><td>FE</td></tr>
+  <tr><td>6</td><td><strong>馬主/毛色/賞金をUI表示</strong></td><td>FE</td></tr>
+</table>
+
+<div class="ok">
+  <strong>最重要は #5 「スマホでもPC同等の情報量」</strong>。現在はスマホだと情報が大幅に削減されている。netkeiba風にスクロールで全情報が見えるカードに改修する。
+</div>
+
+</div>
+<footer>リッチUI v2 設計書 | 2026-06-10</footer>
+</body>
+</html>
