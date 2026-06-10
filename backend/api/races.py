@@ -380,6 +380,31 @@ def get_features(race_id: str):
         }
         horses.append(horse)
 
+    # ── フィールド内正規化: 外れ値を抑制 ──
+    # 各カテゴリで、1頭だけが突出している場合にスコアを圧縮
+    if len(horses) >= 3:
+        score_keys = list(horses[0]["scores"].keys())
+        for key in score_keys:
+            vals = [h["scores"][key] for h in horses]
+            mx = max(vals)
+            if mx <= 0:
+                continue
+            # 非ゼロの値の数をカウント
+            nonzero = sum(1 for v in vals if v > 0)
+            # フィールドの半数以上が0の場合、そのカテゴリの影響を圧縮
+            # （例: G1勝利が1頭だけ → 全馬の中でそのカテゴリの差別化力が低い）
+            if nonzero <= len(horses) * 0.25:
+                # 非常に少数しか値を持たない → 最大値を半分に圧縮
+                scale = 0.5
+            elif nonzero <= len(horses) * 0.5:
+                # 半数以下 → やや圧縮
+                scale = 0.75
+            else:
+                scale = 1.0
+            if scale < 1.0:
+                for h in horses:
+                    h["scores"][key] = round(h["scores"][key] * scale, 1)
+
     weather_info = weather.iloc[-1].to_dict() if not weather.empty else {}
 
     return {"features": horses, "config": config, "weather": weather_info}
