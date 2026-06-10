@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEIBA AI - システム設計書 v4.0</title>
+<style>
+  body { font-family: 'Segoe UI', 'Hiragino Sans', sans-serif; max-width: 960px; margin: 0 auto; padding: 20px; color: #1e293b; line-height: 1.7; }
+  h1 { color: #1e3a5f; border-bottom: 3px solid #3b82f6; padding-bottom: 8px; }
+  h2 { color: #1e40af; border-bottom: 1px solid #93c5fd; padding-bottom: 4px; margin-top: 2em; }
+  h3 { color: #334155; margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
+  th { background: #1e3a5f; color: white; font-size: 13px; }
+  tr:nth-child(even) { background: #f8fafc; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  pre { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fecaca; color: #991b1b; }
+  .update { border-left: 4px solid #3b82f6; padding-left: 12px; margin: 8px 0; background: #eff6ff; }
+</style>
+</head>
+<body>
+
+<h1>KEIBA AI - システム設計書 v4.0</h1>
+<p><strong>最終更新:</strong> 2026-06-10 | <strong>対象バージョン:</strong> master@af1f9ad以降</p>
+
+<div class="update">
+<strong>v4.0 主要変更点（v3.0からの差分）:</strong>
+<ul>
+<li>買い目最適化: Kelly基準 → <strong>バリュー比率ベース</strong>（AI確率 / 市場確率）に全面書き換え</li>
+<li>距離適性スコア: 0固定 → <strong>過去走の距離別好走率から計算</strong></li>
+<li>馬画像API: netkeibaから最大8枚の写真をプロキシ取得</li>
+<li>JRA中央競馬オッズ: scheduler_v2にJRAオッズ取得機能を追加</li>
+<li>ウェイトカテゴリ: 14 → <strong>15カテゴリ</strong>（距離適性追加）、プリセット5種</li>
+<li>netkeiba_id自動取得: 出馬表から全馬のIDを自動収集</li>
+</ul>
+</div>
+
+<!-- ============================================ -->
+<h2>1. システムアーキテクチャ</h2>
+
+<h3>1-1. 技術スタック</h3>
+<table>
+<tr><th>層</th><th>技術</th><th>役割</th></tr>
+<tr><td>フロントエンド</td><td>React 19 + TypeScript 6 + Tailwind CSS 4 + Vite 8</td><td>SPA、ウェイト調整UI、リアルタイムスコア再計算</td></tr>
+<tr><td>バックエンド</td><td>FastAPI + Python 3.13</td><td>REST API、スコアリング、バリュー分析</td></tr>
+<tr><td>データ</td><td>CSV（レース別ディレクトリ）</td><td>entries, horse_history, extended_data, odds, weather等</td></tr>
+<tr><td>スケジューラ</td><td>scheduler_v2.py + Windows Task Scheduler</td><td>オッズ・天気の自動更新</td></tr>
+<tr><td>ホスティング</td><td>Render (free plan)</td><td>本番環境</td></tr>
+</table>
+
+<h3>1-2. ディレクトリ構造</h3>
+<pre>
+keiba_ai/
+├── backend/
+│   ├── main.py              # FastAPI app + SPA配信
+│   ├── api/
+│   │   ├── races.py         # レースCRUD + 特徴量API + 馬画像API
+│   │   ├── betting.py       # 買い目最適化API（バリューベース）
+│   │   ├── predictions.py   # 旧予測API（互換用）
+│   │   ├── simulation.py    # レースシミュレーション
+│   │   └── data_status.py   # データステータス
+│   └── core/
+│       └── optimizer.py     # 買い目最適化エンジン v3
+├── frontend/
+│   └── src/
+│       ├── App.tsx           # メインアプリ（レース切替、タブ）
+│       └── pages/
+│           ├── PredictionTable.tsx  # 出馬表 + ウェイト調整
+│           ├── HorseDetail.tsx      # 馬詳細（画像ギャラリー付）
+│           ├── BettingOptimizer.tsx  # 買い目最適化（バリュー分析）
+│           └── RaceSimulation.tsx   # シミュレーション
+├── data/
+│   ├── races/{race_id}/     # レース別データ
+│   │   ├── config.json      # レース設定
+│   │   ├── entries.csv      # 出走馬
+│   │   ├── horse_history.csv # 過去走（距離適性計算に使用）
+│   │   ├── extended_data.csv # 拡張データ（netkeiba_id含む）
+│   │   ├── odds.csv         # 実オッズ（scheduler自動更新）
+│   │   ├── weather.csv      # 天気予報
+│   │   └── youtube.csv / news.csv / training.csv
+│   └── common/
+│       └── jockey_stats.csv
+├── scheduler_v2.py          # データ自動更新（JRA+NAR対応）
+├── update_odds.cmd           # オッズ手動更新バッチ
+├── setup_scheduler.cmd       # タスクスケジューラ登録
+└── docs/                     # 設計ドキュメント
+</pre>
+
+<!-- ============================================ -->
+<h2>2. スコアリングエンジン（15カテゴリ）</h2>
+
+<p>全馬のスコアは <code>GET /api/races/{race_id}/features</code> で返される。
+フロントエンドでウェイト乗算 → 合計 → 正規化 → 確率算出をリアルタイムに行う。</p>
+
+<h3>2-1. カテゴリ一覧と計算式</h3>
+<table>
+<tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算ロジック</th><th>スコア範囲(目安)</th></tr>
+<tr><td>1</td><td>馬齢</td><td>age</td><td>config.trends.age_bias[年齢]（例: 4歳=20, 5歳=25, 6歳=8）</td><td>0-25</td></tr>
+<tr><td>2</td><td>近走成績</td><td>recent_form</td><td>(18-前走着順)*1.5 + (18-前々走着順)*0.8</td><td>0-41</td></tr>
+<tr><td>3</td><td>G1実績</td><td>g1_record</td><td>log(1+G1勝数)*15 + G1複勝回数*5</td><td>0-50+</td></tr>
+<tr><td>4</td><td><span class="badge badge-green">距離適性</span></td><td>distance_aptitude</td><td>レース距離±400m・同馬場の過去走で好走率*20 + (10-平均着順)*1.5 + 経験値ボーナス</td><td>0-40</td></tr>
+<tr><td>5</td><td>騎手力</td><td>jockey</td><td>log(1+G1勝数)*4.5 + 2026年勝率*25</td><td>0-30</td></tr>
+<tr><td>6</td><td>上がり3F</td><td>last_3f</td><td>(37-best_last3f)*5（32〜37秒でクリップ）</td><td>0-25</td></tr>
+<tr><td>7</td><td>能力値</td><td>speed_figure</td><td>(speed_figure-90)*1.5</td><td>0-40</td></tr>
+<tr><td>8</td><td>血統適性</td><td>pedigree</td><td>父の距離勝率*30 + 父の競馬場勝率*20</td><td>0-15</td></tr>
+<tr><td>9</td><td>世論</td><td>public_opinion</td><td>YouTube評価*2 + ニュース評価*2</td><td>0-20</td></tr>
+<tr><td>10</td><td>調教</td><td>training</td><td>(調教強度-3)*5（1-5段階）</td><td>-10〜10</td></tr>
+<tr><td>11</td><td>脚質</td><td>running_style</td><td>config.trends.style_bias[脚質]（逃げ=8, 先行=5, 差し=2, 追込=0）</td><td>0-8</td></tr>
+<tr><td>12</td><td>対戦成績</td><td>head_to_head</td><td>対戦勝率*15（対戦データあり時のみ）</td><td>0-15</td></tr>
+<tr><td>13</td><td>休養</td><td>rest</td><td>good=6, ok=3, poor=0</td><td>0-6</td></tr>
+<tr><td>14</td><td>厩舎</td><td>trainer</td><td>log(1+厩舎G1勝数)*3</td><td>0-8</td></tr>
+<tr><td>15</td><td>体重推移</td><td>weight_trend</td><td>stable=4, increasing=2, decreasing=0</td><td>0-4</td></tr>
+</table>
+
+<h3>2-2. ウェイト調整UI</h3>
+<p>フロントエンド（PredictionTable.tsx）にて、各カテゴリのウェイトを0.0〜2.0のスライダーで調整可能。
+合計スコアはリアルタイムに再計算され、順位が動的に変わる。</p>
+
+<h4>プリセット（5種）</h4>
+<table>
+<tr><th>名称</th><th>特徴</th><th>主な増減</th></tr>
+<tr><td>標準</td><td>全カテゴリ 1.0x</td><td>-</td></tr>
+<tr><td>データ重視</td><td>数値データを重視</td><td>3F:1.5 能力:1.5 近走:1.3 G1:1.3 世論:0.3</td></tr>
+<tr><td>血統重視</td><td>血統適性を最重視</td><td>血統:2.0 距離:1.3 世論:0.3</td></tr>
+<tr><td>騎手重視</td><td>騎手・厩舎力を重視</td><td>騎手:2.0 厩舎:1.2 調教:1.2</td></tr>
+<tr><td>穴馬発掘</td><td>人気薄の好走要因を探す</td><td>3F:2.0 能力:1.5 調教:1.5 脚質:1.5 G1:0.3 世論:0.2</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2>3. 買い目最適化エンジン v3（バリュー比率ベース）</h2>
+
+<div class="update">
+<strong>v3.0で全面書き換え。</strong> 旧方式（Kelly基準+推定オッズ）→ 実オッズとAI確率の比較に基づくバリュー分析に変更。
+</div>
+
+<h3>3-1. コアコンセプト</h3>
+<pre>
+バリュー比率 = AI確率 / 市場確率
+             = AI確率 × 実オッズ  （数学的に同値）
+
+例:
+  フィンガー: AI=23.8%, オッズ=4.3x → 市場確率=23.3% → 比率=1.02x → 適正
+  ロウリュ:   AI=10.0%, オッズ=133.6x → 市場確率=0.7% → 比率=13.3x → 狙い目
+  シルバーレシオ: AI=12.1%, オッズ=1.1x → 市場確率=90.9% → 比率=0.13x → 過大評価
+</pre>
+
+<h3>3-2. 判定ロジック</h3>
+<table>
+<tr><th>判定</th><th>条件</th><th>意味</th></tr>
+<tr><td><span class="badge badge-green">狙い目 (STRONG_BUY)</span></td><td>バリュー比 ≥ 1.5 かつ AI確率 ≥ 5%</td><td>AIが市場より大幅に高評価。確信度も十分。</td></tr>
+<tr><td><span class="badge badge-blue">妙味あり (BUY)</span></td><td>バリュー比 ≥ 1.2 かつ AI確率 ≥ 3%</td><td>AIが市場よりやや高評価。</td></tr>
+<tr><td>適正 (FAIR)</td><td>0.8 ≤ バリュー比 ≤ 1.2</td><td>AIと市場がほぼ一致。</td></tr>
+<tr><td><span class="badge badge-red">過大評価 (OVERVALUED)</span></td><td>バリュー比 &lt; 0.8、または AI確率低すぎ</td><td>市場が高く評価しすぎ。消し。</td></tr>
+</table>
+
+<p><strong>重要:</strong> 999倍の超不人気馬はAI確率も低い（1-2%）ため、AI確率の閾値フィルタにより買い目候補から除外される。
+「オッズが高い = 期待値が高い」にはならない。</p>
+
+<h3>3-3. 買い目生成フロー</h3>
+<ol>
+<li><strong>バリュー馬の抽出:</strong> AI確率 ≥ 閾値（堅実:6%, バランス:4%, 大穴:2%）かつ バリュー比 ≥ 0.8</li>
+<li><strong>全組み合わせ生成:</strong> 単勝/複勝/馬連/ワイド/馬単/三連複/三連単</li>
+<li><strong>ケリー基準フィルタ:</strong> kelly &gt; 0（正のエッジがある買い目のみ）</li>
+<li><strong>ケリー値順でソート・選出:</strong> リスク別の上限点数（堅実:5, バランス:10, 大穴:15）</li>
+<li><strong>金額配分:</strong> ケリー比率で予算を按分（100円単位切り上げ）</li>
+</ol>
+
+<h3>3-4. 連勝式オッズの推定</h3>
+<p>実際の連勝式オッズ（馬連、三連複等）はodds.csvに含まれないため、単勝オッズの積から推定:</p>
+<table>
+<tr><th>券種</th><th>推定式</th><th>上限</th></tr>
+<tr><td>馬連</td><td>oa × ob × 0.35</td><td>5,000倍</td></tr>
+<tr><td>ワイド</td><td>oa × ob × 0.12</td><td>1,000倍</td></tr>
+<tr><td>馬単</td><td>oa × ob × 0.7</td><td>10,000倍</td></tr>
+<tr><td>三連複</td><td>oa × ob × oc × 0.08</td><td>50,000倍</td></tr>
+<tr><td>三連単</td><td>oa × ob × oc × 0.15</td><td>200,000倍</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2>4. データ更新（scheduler_v2.py）</h2>
+
+<h3>4-1. 対応データソース</h3>
+<table>
+<tr><th>データ</th><th>ソース</th><th>方式</th></tr>
+<tr><td>天気予報</td><td>Open-Meteo API</td><td>緯度経度→7日間予報（APIキー不要）</td></tr>
+<tr><td>JRAオッズ</td><td>netkeiba JRA API</td><td>race_id自動探索 → 出馬表パース → odds API → odds.csv</td></tr>
+<tr><td>NARオッズ</td><td>netkeiba NAR</td><td>HTMLスクレイピング → odds.csv</td></tr>
+<tr><td>netkeiba_id</td><td>netkeiba 出馬表</td><td>自動取得 → extended_data.csv更新</td></tr>
+</table>
+
+<h3>4-2. コマンド</h3>
+<pre>
+python scheduler_v2.py update          # 全レース更新（天気+オッズ+ID）
+python scheduler_v2.py update-odds     # オッズのみ更新
+python scheduler_v2.py update-weather  # 天気のみ更新
+python scheduler_v2.py loop            # 30分間隔で自動更新
+python scheduler_v2.py loop 15         # 15分間隔で自動更新
+</pre>
+
+<h3>4-3. Windows自動化</h3>
+<p><code>setup_scheduler.cmd</code> をダブルクリック → Windowsタスクスケジューラに30分間隔（9:00-17:00）で登録。
+ログは <code>logs/odds_update.log</code> に記録。</p>
+
+<!-- ============================================ -->
+<h2>5. 馬画像API</h2>
+<table>
+<tr><th>エンドポイント</th><th>説明</th></tr>
+<tr><td><code>GET /api/horses/{netkeiba_id}/photos</code></td><td>netkeibaから写真ID一覧を取得（最大8枚、キャッシュ付き）</td></tr>
+<tr><td><code>GET /api/horses/{netkeiba_id}/photo/{photo_id}</code></td><td>写真をプロキシして返す（Cache-Control: 24h）</td></tr>
+</table>
+<p>HorseDetail.tsxにて、ヘッダーにメイン写真、プロフィールタブに画像ギャラリー（サムネイル選択式）を表示。</p>
+
+<!-- ============================================ -->
+<h2>6. API一覧</h2>
+<table>
+<tr><th>メソッド</th><th>エンドポイント</th><th>説明</th></tr>
+<tr><td>GET</td><td>/api/health</td><td>ヘルスチェック</td></tr>
+<tr><td>GET</td><td>/api/races</td><td>レース一覧</td></tr>
+<tr><td>POST</td><td>/api/races</td><td>レース追加</td></tr>
+<tr><td>DELETE</td><td>/api/races/{race_id}</td><td>レース削除</td></tr>
+<tr><td>GET</td><td>/api/races/{race_id}/features</td><td>全馬の特徴量（15カテゴリスコア + 生データ）</td></tr>
+<tr><td>GET</td><td>/api/races/{race_id}/config</td><td>レース設定</td></tr>
+<tr><td>PUT</td><td>/api/races/{race_id}/config</td><td>レース設定更新</td></tr>
+<tr><td>POST</td><td>/api/betting/optimize</td><td>バリューベース買い目最適化</td></tr>
+<tr><td>POST</td><td>/api/betting/compare</td><td>3パターン比較（堅実/バランス/大穴）</td></tr>
+<tr><td>POST</td><td>/api/betting/formation</td><td>三連複フォーメーション</td></tr>
+<tr><td>POST</td><td>/api/betting/box</td><td>ボックス買い</td></tr>
+<tr><td>POST</td><td>/api/betting/simulate-result</td><td>収支シミュレーション</td></tr>
+<tr><td>GET</td><td>/api/horses/{id}/photos</td><td>馬画像ID一覧</td></tr>
+<tr><td>GET</td><td>/api/horses/{id}/photo/{photo_id}</td><td>馬画像プロキシ</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2>7. フロントエンド画面構成</h2>
+<table>
+<tr><th>画面</th><th>コンポーネント</th><th>機能</th></tr>
+<tr><td>出馬表</td><td>PredictionTable.tsx</td><td>全馬カード表示、ウェイト調整（15カテゴリ×5プリセット）、スコア展開、馬詳細遷移</td></tr>
+<tr><td>馬詳細</td><td>HorseDetail.tsx</td><td>プロフィール、競走成績、血統、AI分析、画像ギャラリー（最大8枚）</td></tr>
+<tr><td>シミュレーション</td><td>RaceSimulation.tsx</td><td>レース展開シミュレーション</td></tr>
+<tr><td>買い目最適化</td><td>BettingOptimizer.tsx</td><td>バリュー分析、AI最適化、3パターン比較、軸馬流し、フォーメーション、ボックス</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2>8. データファイル仕様</h2>
+
+<h3>8-1. entries.csv</h3>
+<p>出走馬の基本情報。列: gate_number, post_position, horse_name, sex, age, weight_carried, jockey_name, trainer_name, horse_weight, sire, dam_sire, prev_race, prev_finish, prev_distance, days_since_last, field_size</p>
+
+<h3>8-2. horse_history.csv</h3>
+<p>過去走データ。距離適性計算に使用。列: horse_name, race_date, venue, race_name, grade, distance, surface, track_condition, field_size, finish_position, finish_time, last_3f, jockey_name, horse_weight, popularity, sire</p>
+
+<h3>8-3. extended_data.csv</h3>
+<p>拡張データ。列: horse_name, best_last3f, avg_last3f, running_style, passing_pattern, best_weight, weight_trend, sire, dam_sire, sire_turf2200_winrate, sire_hanshin_winrate, sire_heavy_winrate, head2head_wins, head2head_total, trainer, trainer_g1_wins, rest_days, rest_performance, speed_figure, owner, coat_color, english_name, total_prize, netkeiba_id</p>
+
+<h3>8-4. odds.csv</h3>
+<p>実オッズ（scheduler_v2自動更新）。列: gate_number, horse_name, win_odds, popularity, fetched_at</p>
+
+<h3>8-5. config.json</h3>
+<pre>
+{
+  "id": "takarazuka_2026",
+  "name": "宝塚記念",
+  "date": "2026-06-14",
+  "venue": "阪神",
+  "distance": 2200,
+  "surface": "芝",
+  "grade": "G1",
+  "netkeiba_race_id": "202609030411",  // scheduler自動設定
+  "trends": {
+    "age_bias": {"4": 20, "5": 25, "6": 8},
+    "style_bias": {"nige": 8, "senko": 5, "sashi": 2, "oikomi": 0}
+  }
+}
+</pre>
+
+</body>
+</html>

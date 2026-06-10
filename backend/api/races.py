@@ -181,6 +181,22 @@ def get_features(race_id: str):
         style_code = {"nige": 0, "senko": 1, "sashi": 2, "oikomi": 3}.get(str(ext.get("running_style", "")), 1)
         style_name = str(ext.get("running_style", "senko"))
 
+        # 距離適性: 今回の距離±400m以内の過去走で好走率を計算
+        race_dist = config.get("distance", 2000)
+        race_surface = config.get("surface", "芝")
+        dist_apt = 0.0
+        if not h.empty and "distance" in h.columns:
+            dist_col = pd.to_numeric(h["distance"], errors="coerce")
+            surf_match = h["surface"] == race_surface if "surface" in h.columns else pd.Series(True, index=h.index)
+            near = h[(dist_col >= race_dist - 400) & (dist_col <= race_dist + 400) & surf_match]
+            if len(near) > 0:
+                near_fp = pd.to_numeric(near["finish_position"], errors="coerce").dropna()
+                if len(near_fp) > 0:
+                    win_rate = float((near_fp <= 3).sum()) / len(near_fp)
+                    avg_finish = float(near_fp.mean())
+                    # スコア: 好走率(0-1) * 20 + (10 - 平均着順) * 1.5 + 経験値ボーナス
+                    dist_apt = win_rate * 20 + max(10 - avg_finish, 0) * 1.5 + min(len(near_fp), 5) * 1.0
+
         # 騎手
         jname = str(e.get("jockey_name", ""))
         jrow = jockey[jockey["jockey_name"] == jname].iloc[0].to_dict() if not jockey.empty and jname in jockey["jockey_name"].values else {}
@@ -264,7 +280,7 @@ def get_features(race_id: str):
                 "age": float(age_bias.get(str(age), 0)),
                 "recent_form": (18 - min(max(last1, 1), 18)) * 1.5 + (18 - min(max(last2, 1), 18)) * 0.8,
                 "g1_record": float(np.log1p(g1_wins) * 15 + g1_place * 5),
-                "distance_aptitude": 0,  # 距離適性は汎用計算が必要なため簡略化
+                "distance_aptitude": round(dist_apt, 1),
                 "jockey": float(np.log1p(j_g1) * 4.5 + j_wr * 25),
                 "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,
                 "speed_figure": float((speed - 90) * 1.5) if speed > 0 else 0,
