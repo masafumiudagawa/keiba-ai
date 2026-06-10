@@ -80,21 +80,62 @@ def simulate_race(horses: list[dict], n_simulations: int = 1000,
     condition_factor = condition_map.get(track_condition, 1.0)
 
     # 各馬のパラメータ設定
+    # AI予測スコアが渡されている場合、スコアからbase_speedを算出
     horse_params = []
     for i, h in enumerate(horses):
         name = h.get("horse_name", "")
-        params = DEFAULT_HORSE_PARAMS.get(name, {"style": "senko", "base_speed": 0.97, "stamina": 0.98})
-        style = STYLES[params["style"]]
+
+        # ハードコード値があればそれを使う（宝塚記念等の手動チューニング済み馬）
+        if name in DEFAULT_HORSE_PARAMS:
+            params = DEFAULT_HORSE_PARAMS[name]
+        elif "scores" in h:
+            # AI予測スコアからシミュレーションパラメータを算出
+            scores = h["scores"]
+            total = sum(scores.values()) if scores else 100
+            # base_speed: スコア合計を0.985〜1.015の範囲にマッピング
+            # 全馬の中央値を1.000として、上下±0.015に分布させる
+            params = {
+                "style": str(h.get("running_style", scores.get("running_style_raw", "senko"))),
+                "base_speed": total,  # 後で全馬の分布から正規化
+                "stamina": total,
+            }
+        else:
+            params = {"style": "senko", "base_speed": 0.97, "stamina": 0.98}
+
+        # running_styleの名前解決
+        style_name = params.get("style", "senko")
+        if style_name not in STYLES:
+            style_name = "senko"
+        style = STYLES[style_name]
+
         horse_params.append({
             "name": name,
             "gate": _safe_int(h.get("gate_number"), i + 1),
-            "base_speed": params["base_speed"] * condition_factor,
-            "stamina": params["stamina"],
-            "style": params["style"],
+            "base_speed": params["base_speed"],
+            "stamina": params.get("stamina", 0.998),
+            "style": style_name,
             "early_mult": style["early"],
             "mid_mult": style["mid"],
             "late_mult": style["late"],
         })
+
+    # スコアベースの馬がいる場合、base_speed/staminaを正規化
+    score_based = [hp for hp in horse_params if hp["base_speed"] > 10]  # スコア値は100+
+    if score_based:
+        totals = [hp["base_speed"] for hp in score_based]
+        mn, mx = min(totals), max(totals)
+        rng = mx - mn or 1
+        for hp in score_based:
+            # 0.985 〜 1.015 にマッピング
+            normalized = (hp["base_speed"] - mn) / rng
+            hp["base_speed"] = (0.985 + normalized * 0.030) * condition_factor
+            # staminaも同様: 0.995 〜 1.005
+            normalized_s = (hp["stamina"] - mn) / rng
+            hp["stamina"] = 0.995 + normalized_s * 0.010
+    else:
+        # ハードコード馬のみ: 馬場補正だけ適用
+        for hp in horse_params:
+            hp["base_speed"] *= condition_factor
 
     # シミュレーション実行
     all_finish_positions = np.zeros((n_simulations, n_horses), dtype=int)
