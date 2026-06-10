@@ -88,52 +88,80 @@
 </table>
 
 <!-- ═══════ 3 ═══════ -->
-<h2 id="s3">3. 予測エンジン（17カテゴリ詳細）</h2>
+<h2 id="s3">3. 予測エンジン（23カテゴリ × 4Tier構造）</h2>
 
 <div class="ok">
-v3.0の23カテゴリから統合・再設計。旧「前走+2走前」→「近走」、旧「G1勝利+G1複勝」→「G1実績」等に統合し、新たに「通算勝率」「コース経験」を追加。全カテゴリが意味のある計算を持つ。
+<strong>設計思想:</strong> 23の独立したスコアカテゴリで各馬を評価。ML研究・プロ予想家の知見・学術論文に基づき、4段階のTier（重要度階層）で配点を設計。
+各カテゴリのmaxスコアは5〜32の範囲に収め、1つのカテゴリが予測全体を支配しない構造。UIのスライダーは17グループに集約して操作性を確保。
 </div>
 
+<h3>3-A. Tier1: 最重要カテゴリ（max 25-32）</h3>
+<p>ML研究で一貫して予測力が高いファクター。合計maxの約40%を占める。</p>
 <table>
-  <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>範囲(目安)</th><th>データソース</th></tr>
-  <tr><td>1</td><td>馬齢</td><td>age</td><td>config.trends.age_bias[年齢]</td><td class="n">0-25</td><td>config.json</td></tr>
-  <tr><td>2</td><td>近走成績</td><td>recent_form</td><td>(18-前走着順)×1.5 + (18-前々走着順)×0.8</td><td class="n">0-39</td><td>horse_history.csv</td></tr>
-  <tr><td>3</td><td>G1実績</td><td>g1_record</td><td>ln(1+G1勝数)×15 + G1複勝回数×5</td><td class="n">0-50</td><td>horse_history.csv</td></tr>
-  <tr class="new"><td>4</td><td><strong>通算勝率</strong></td><td>career_win_rate</td><td>通算勝率 × 15</td><td class="n">0-15</td><td>horse_history.csv</td></tr>
-  <tr><td>5</td><td>距離適性</td><td>distance_aptitude</td><td>レース距離±400m・同馬場の好走率×20 + (10-平均着順)×1.5 + 経験値</td><td class="n">0-40</td><td>horse_history.csv + config.json</td></tr>
-  <tr class="new"><td>6</td><td><strong>コース経験</strong></td><td>venue_experience</td><td>同競馬場の好走率×10 + min(出走数,5)×1.5</td><td class="n">0-18</td><td>horse_history.csv + config.json</td></tr>
-  <tr><td>7</td><td>騎手力</td><td>jockey</td><td>ln(1+G1勝数)×4.5 + 2026年勝率×25</td><td class="n">0-25</td><td>jockey_stats.csv</td></tr>
-  <tr><td>8</td><td>上がり3F</td><td>last_3f</td><td>(37-ベスト3F)×5 （32〜37秒でクリップ）</td><td class="n">0-25</td><td>extended_data.csv</td></tr>
-  <tr><td>9</td><td>能力値</td><td>speed_figure</td><td>(スピード指数-90)×1.5</td><td class="n">0-40</td><td>extended_data.csv</td></tr>
-  <tr><td>10</td><td>血統適性</td><td>pedigree</td><td>父の距離勝率×10 + 父の競馬場勝率×8 + 父の重馬場勝率×5</td><td class="n">0-15</td><td>extended_data.csv</td></tr>
-  <tr><td>11</td><td>世論</td><td>public_opinion</td><td>min(YouTube×0.5 + ニュース×0.5, 20)</td><td class="n">0-20</td><td>youtube.csv + news.csv</td></tr>
-  <tr><td>12</td><td>調教</td><td>training</td><td>(調教強度-3)×5</td><td class="n">-10〜10</td><td>training.csv</td></tr>
-  <tr><td>13</td><td>脚質</td><td>running_style</td><td>config.trends.style_bias[脚質]</td><td class="n">0-8</td><td>extended_data.csv + config.json</td></tr>
-  <tr><td>14</td><td>対戦成績</td><td>head_to_head</td><td>(対戦勝数/対戦総数) × 15</td><td class="n">0-15</td><td>extended_data.csv</td></tr>
-  <tr><td>15</td><td>休養</td><td>rest</td><td>good=6, ok=3, poor=0</td><td class="n">0-6</td><td>extended_data.csv</td></tr>
-  <tr><td>16</td><td>厩舎</td><td>trainer</td><td>ln(1+厩舎G1勝数)×3</td><td class="n">0-8</td><td>extended_data.csv</td></tr>
-  <tr><td>17</td><td>体重推移</td><td>weight_trend</td><td>stable=4, increasing=2, decreasing=0</td><td class="n">0-4</td><td>extended_data.csv</td></tr>
+  <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>max</th><th>根拠</th></tr>
+  <tr><td>1</td><td>前走着順</td><td>last_finish</td><td>(18 - 前走着順) × 1.5</td><td class="n">25.5</td><td>ML研究で常に最上位の予測因子</td></tr>
+  <tr><td>2</td><td>スピード指数</td><td>speed_figure</td><td>(スピード指数 - 90) × 1.2</td><td class="n">30</td><td>能力の絶対値。芝での精度低下を考慮し係数抑制</td></tr>
+  <tr><td>3</td><td>上がり3F</td><td>last_3f</td><td>(37 - ベスト上がり3F) × 5<br><small>※32〜37秒でクリップ</small></td><td class="n">25</td><td>中距離G1で最速馬の複勝率が極めて高い</td></tr>
+  <tr><td>4</td><td>G1勝利</td><td>g1_wins</td><td>min(ln(1 + G1勝数) × 15, 25)</td><td class="n">25</td><td>最高峰での実績。対数で差を圧縮</td></tr>
+  <tr><td>5</td><td>距離適性</td><td>distance_aptitude</td><td>(距離±400m好走率×20 + (10-平均着順)×1.5 + 経験値) × 0.7</td><td class="n">28</td><td>G1馬はすでに適性ありのため係数0.7で抑制</td></tr>
 </table>
 
-<h3>3-B. スコア→確率 変換フロー</h3>
-<div class="f">1. 各馬の合計スコア = Σ(カテゴリスコア × ウェイト)
+<h3>3-B. Tier2: 重要カテゴリ（max 10-25）</h3>
+<p>予測に有意に寄与するが、Tier1ほど決定的ではないファクター。</p>
+<table>
+  <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>max</th><th>根拠</th></tr>
+  <tr><td>6</td><td>馬齢</td><td>age</td><td>config.trends.age_bias[年齢]<br><small>※レースごとに設定（宝塚:5歳=25, ダービー:3歳=25等）</small></td><td class="n">25</td><td>学術研究ピーク4.45歳。config.jsonで柔軟に設定</td></tr>
+  <tr><td>7</td><td>騎手G1実績</td><td>jockey_g1</td><td>ln(1 + 騎手G1勝数) × 4.5</td><td class="n">20</td><td>ML分析で常に上位。例: ルメール48勝→17.5pt</td></tr>
+  <tr><td>8</td><td>G1複勝</td><td>g1_places</td><td>min(G1複勝回数 × 3, 18)</td><td class="n">18</td><td>安定感の指標。G1勝利(max25)を超えない設計</td></tr>
+  <tr><td>9</td><td>通算勝率</td><td>career_win_rate</td><td>通算勝率 × 15</td><td class="n">15</td><td>安定した予測因子。70%勝率なら10.5pt</td></tr>
+  <tr><td>10</td><td>騎手勝率</td><td>jockey_win_rate</td><td>min(シーズン勝率 × 50, 15)</td><td class="n">15</td><td>現在の好調さ。例: 20%→10pt, 10%→5pt</td></tr>
+  <tr><td>11</td><td>調教</td><td>training</td><td>(調教強度 - 3) × 6.5<br><small>※1-5段階</small></td><td class="n">13</td><td>追い切り速い馬は遅い馬の3-10倍の勝率</td></tr>
+  <tr><td>12</td><td>2走前着順</td><td>second_last_finish</td><td>(18 - 2走前着順) × 0.7</td><td class="n">12</td><td>安定感の指標。前走より減衰（1.5→0.7）</td></tr>
+</table>
+
+<h3>3-C. Tier3: 中程度のカテゴリ（max 5-12）</h3>
+<p>レース条件や相手関係に依存して重要度が変わるファクター。</p>
+<table>
+  <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>max</th><th>根拠</th></tr>
+  <tr><td>13</td><td>対戦成績</td><td>head_to_head</td><td>min(対戦勝率 × 12, 12)<br><small>※対戦データあり時のみ</small></td><td class="n">12</td><td>直接対決の相性。サンプル少のため抑制</td></tr>
+  <tr><td>14</td><td>厩舎力</td><td>trainer_score</td><td>ln(1 + 厩舎G1勝数) × 4.2</td><td class="n">11</td><td>学術研究で「予測に有意な変数」</td></tr>
+  <tr><td>15</td><td>コース経験</td><td>venue_experience</td><td>min((同競馬場好走率×8 + min(出走数,4)×1.0) × 0.8, 10)</td><td class="n">10</td><td>競馬場特性の慣れ。初コースの馬は0pt</td></tr>
+  <tr><td>16</td><td>脚質</td><td>running_style</td><td>config.style_bias[脚質] × 1.2<br><small>※宝塚: 逃げ=8, 先行=5, 差し=2, 追込=0</small></td><td class="n">9.6</td><td>展開依存。config.jsonで柔軟に設定</td></tr>
+  <tr><td>17</td><td>休養</td><td>rest</td><td>good=9, ok=5, poor=1</td><td class="n">9</td><td>JRA-VANデータ: 休養明け好走率は近年向上傾向</td></tr>
+  <tr><td>18</td><td>血統（距離）</td><td>pedigree_distance</td><td>min(父の距離勝率 × 25, 8)</td><td class="n">8</td><td>未知の距離適性を血統から予測</td></tr>
+  <tr><td>19</td><td>体重推移</td><td>weight_trend</td><td>stable=7, increasing=4, decreasing=2</td><td class="n">7</td><td>±2kg安定が最高勝率（JRAデータ）</td></tr>
+</table>
+
+<h3>3-D. Tier4: 補助カテゴリ（max 5-8）</h3>
+<p>参考情報。予想家バイアスや商業バイアスを考慮して影響を限定。</p>
+<table>
+  <tr><th>#</th><th>カテゴリ</th><th>key</th><th>計算式</th><th>max</th><th>根拠</th></tr>
+  <tr><td>20</td><td>ニュース世論</td><td>news</td><td>min(ニューススコア × 0.4, 8)</td><td class="n">8</td><td>プロ記者の知見。YouTube よりやや信頼性高い</td></tr>
+  <tr><td>21</td><td>YouTube世論</td><td>youtube</td><td>min(YouTubeスコア × 0.35, 7)</td><td class="n">7</td><td>予想家バイアス・商業バイアスを考慮し最も抑制</td></tr>
+  <tr><td>22</td><td>血統（競馬場）</td><td>pedigree_venue</td><td>min(父の競馬場勝率 × 20, 6)</td><td class="n">6</td><td>コース特性は父から遺伝</td></tr>
+  <tr><td>23</td><td>血統（重馬場）</td><td>pedigree_heavy</td><td>min(父の重馬場勝率 × 15, 5)</td><td class="n">5</td><td>重馬場は血統的適性が顕著に出る</td></tr>
+</table>
+
+<h3>3-E. 配点設計の根拠</h3>
+<div class="card">
+<table>
+  <tr><th>設計原則</th><th>詳細</th></tr>
+  <tr><td>maxレンジの均等化</td><td>旧: 1.5〜40（27倍差） → 新: 5〜32（6倍差）。1カテゴリが予測を支配しない</td></tr>
+  <tr><td>ML研究との整合</td><td>LightGBM/XGBoostの feature importance 上位（前走, SP指数, 騎手）をTier1に配置</td></tr>
+  <tr><td>相関カテゴリの抑制</td><td>pedigree_distance×venue r=0.98, youtube×news r=0.97 → Tier4に抑制し二重計上を防止</td></tr>
+  <tr><td>学術研究の反映</td><td>年齢ピーク4.45歳, 休養明け好走率向上, 馬体重±2kg最高勝率 等を配点に反映</td></tr>
+  <tr><td>バイアス対策</td><td>世論（YouTube/ニュース）は予想家バイアスがあるため max 7-8 に制限</td></tr>
+</table>
+</div>
+
+<h3>3-F. スコア → 確率 変換フロー</h3>
+<div class="f">1. 各馬の合計スコア = Σ(23カテゴリスコア × UIグループウェイト)
+     ※ UIは17グループ。1スライダーが複数のscoreキーに適用される
+     ※ 例: 「近走」スライダー → last_finish + second_last_finish に同じウェイト適用
 2. 正規化: prob = (合計 - 最小値) / (最大値 - 最小値)
-   ※全馬同スコアの場合は等確率(1/N)にフォールバック
+     ※ 全馬同スコアの場合は等確率(1/N)にフォールバック
 3. 確率化: prob = prob / Σprob  （合計100%に正規化）
 4. ソート → 順位 → 印（◎○▲△△）</div>
-
-<h3>3-C. 旧23カテゴリ → 現17カテゴリ 変遷</h3>
-<table>
-  <tr><th>旧カテゴリ</th><th>変更</th><th>現カテゴリ</th></tr>
-  <tr><td>前走着順 + 2走前着順</td><td>統合</td><td>recent_form</td></tr>
-  <tr><td>G1勝利 + G1複勝</td><td>統合</td><td>g1_record</td></tr>
-  <tr><td>距離適性 + 阪神適性</td><td>統合（汎用化）</td><td>distance_aptitude</td></tr>
-  <tr><td>騎手G1 + 騎手勝率</td><td>統合</td><td>jockey</td></tr>
-  <tr><td>YouTube + ニュース</td><td>統合 + 上限キャップ</td><td>public_opinion (max 20)</td></tr>
-  <tr><td>通算勝率</td><td><span class="tag tg">復活(v4)</span></td><td>career_win_rate</td></tr>
-  <tr><td>宝塚経験</td><td><span class="tag tg">汎用化(v4)</span></td><td>venue_experience</td></tr>
-  <tr><td>宝塚経験（旧）</td><td>コース経験に汎用化</td><td>venue_experience</td></tr>
-</table>
 
 <!-- ═══════ 4 ═══════ -->
 <h2 id="s4">4. ウェイト調整UI（6プリセット）</h2>

@@ -270,6 +270,11 @@ def get_features(race_id: str):
 
         style_labels = {"nige": "逃げ", "senko": "先行", "sashi": "差し", "oikomi": "追込"}
 
+        # 対戦成績の事前計算
+        h2h_total = int(ext.get("head2head_total", 0) or 0)
+        h2h_wins = int(ext.get("head2head_wins", 0) or 0)
+        h2h_wr = h2h_wins / max(h2h_total, 1)
+
         # 各カテゴリの生スコア（ウェイト1.0x時の値）
         horse = {
             "horse_name": name,
@@ -291,52 +296,59 @@ def get_features(race_id: str):
             "netkeiba_id": str(ext.get("netkeiba_id", "")).replace(".0", "").strip(),
             "recent_5": recent_5,
             "scores": {
-                # 1. 馬齢
-                "age": float(age_bias.get(str(age), 0)),
-                # 2. 前走着順
-                "last_finish": (18 - min(max(last1, 1), 18)) * 1.5,
-                # 3. 2走前着順
-                "second_last_finish": (18 - min(max(last2, 1), 18)) * 0.8,
-                # 4. G1勝利
-                "g1_wins": float(np.log1p(g1_wins) * 15),
-                # 5. G1複勝
-                "g1_places": float(g1_place * 5),
-                # 6. 通算勝率
-                "career_win_rate": round(career_win_rate * 15, 1),
-                # 7. 距離適性
-                "distance_aptitude": round(dist_apt, 1),
-                # 8. コース経験
-                "venue_experience": round(venue_exp, 1),
-                # 9. 騎手G1
-                "jockey_g1": float(np.log1p(j_g1) * 4.5),
-                # 10. 騎手勝率
-                "jockey_win_rate": float(j_wr * 25),
-                # 11. 上がり3F
-                "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,
-                # 12. スピード指数
-                "speed_figure": float((speed - 90) * 1.5) if speed > 0 else 0,
-                # 13. 血統（距離）
-                "pedigree_distance": float(ext.get("sire_turf2200_winrate", 0) or 0) * 10,
-                # 14. 血統（競馬場）
-                "pedigree_venue": float(ext.get("sire_hanshin_winrate", 0) or 0) * 8,
-                # 15. 血統（重馬場）
-                "pedigree_heavy": float(ext.get("sire_heavy_winrate", 0) or 0) * 5,
-                # 16. YouTube世論
-                "youtube": min(yt_score * 0.5, 10),
-                # 17. ニュース世論
-                "news": min(news_score * 0.5, 10),
-                # 18. 調教
-                "training": (train_val - 3) * 5,
-                # 19. 脚質
-                "running_style": float(style_bias.get(style_name, 0)),
-                # 20. 対戦成績
-                "head_to_head": (int(ext.get("head2head_wins", 0) or 0) / max(int(ext.get("head2head_total", 0) or 0), 1)) * 15 if int(ext.get("head2head_total", 0) or 0) > 0 else 0,
-                # 21. 休養
-                "rest": float({"good": 6, "ok": 3, "poor": 0}.get(str(ext.get("rest_performance", "")), 3)),
-                # 22. 厩舎
-                "trainer_score": float(np.log1p(int(ext.get("trainer_g1_wins", 0) or 0)) * 3),
-                # 23. 体重推移
-                "weight_trend": float({"stable": 4, "increasing": 2, "decreasing": 0}.get(str(ext.get("weight_trend", "")), 2)),
+                # ── Tier1: 最重要（max 25-32） ──
+                # 1. 前走着順: 直近成績が最も予測に寄与（ML研究で一貫して上位）
+                "last_finish": (18 - min(max(last1, 1), 18)) * 1.5,                      # max 25.5
+                # 2. スピード指数: 能力の絶対値（芝での精度低下を考慮し係数抑制）
+                "speed_figure": float((speed - 90) * 1.2) if speed > 0 else 0,            # max 30
+                # 3. 上がり3F: 中距離G1で決定的。最速馬の複勝率が極めて高い
+                "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,  # max 25
+                # 4. G1勝利: 最高峰での実績。対数で差を圧縮
+                "g1_wins": min(float(np.log1p(g1_wins) * 15), 25),                        # max 25
+                # 5. 距離適性: 距離±400m・同馬場の好走率+平均着順+経験値（G1馬はすでに適性ありなので係数抑制）
+                "distance_aptitude": round(dist_apt * 0.7, 1),                            # max 28
+
+                # ── Tier2: 重要（max 12-20） ──
+                # 6. 馬齢: config.jsonで設定（レースごとに異なる）
+                "age": float(age_bias.get(str(age), 0)),                                  # max 25(config依存)
+                # 7. 騎手G1実績: ML分析で常に上位因子
+                "jockey_g1": float(np.log1p(j_g1) * 4.5),                                 # max 20
+                # 8. G1複勝: 安定感の指標。G1勝利(max25)を超えない設計
+                "g1_places": min(float(g1_place * 3), 18),                                 # max 18
+                # 9. 通算勝率: 安定した予測因子
+                "career_win_rate": round(career_win_rate * 15, 1),                         # max 15
+                # 10. 騎手シーズン勝率: 現在の好調さを反映
+                "jockey_win_rate": min(float(j_wr * 50), 15),                              # max 15
+                # 11. 調教: 追い切り速い馬は遅い馬の3-10倍の勝率
+                "training": (train_val - 3) * 6.5,                                         # max 13
+                # 12. 2走前着順: 安定感の指標（前走より減衰）
+                "second_last_finish": (18 - min(max(last2, 1), 18)) * 0.7,                 # max 11.9
+
+                # ── Tier3: 中程度（max 5-12） ──
+                # 13. 対戦成績: 直接対決の相性（サンプル少のため抑制）
+                "head_to_head": min(h2h_wr * 12, 12) if h2h_total > 0 else 0,             # max 12
+                # 14. 厩舎力: トレーナーは予測に有意（学術研究）
+                "trainer_score": float(np.log1p(int(ext.get("trainer_g1_wins", 0) or 0)) * 4.2),  # max 11
+                # 15. コース経験: 同競馬場の好走率+出走経験
+                "venue_experience": min(round(venue_exp * 0.8, 1), 10),                    # max 10
+                # 16. 脚質: 展開依存。config.jsonで設定
+                "running_style": float(style_bias.get(style_name, 0)) * 1.2,               # max 9.6
+                # 17. 休養: 近年の休養明け好走率向上を反映
+                "rest": float({"good": 9, "ok": 5, "poor": 1}.get(str(ext.get("rest_performance", "")), 5)),  # max 9
+                # 18. 血統（距離適性）: 未知の距離適性予測に有用
+                "pedigree_distance": min(float(ext.get("sire_turf2200_winrate", 0) or 0) * 25, 8),   # max 8
+                # 19. 体重推移: ±2kg安定が最高勝率
+                "weight_trend": float({"stable": 7, "increasing": 4, "decreasing": 2}.get(str(ext.get("weight_trend", "")), 4)),  # max 7
+
+                # ── Tier4: 補助（max 5-8） ──
+                # 20. ニュース世論: プロ記者の知見（商業バイアスを考慮し抑制）
+                "news": min(news_score * 0.4, 8),                                          # max 8
+                # 21. YouTube世論: 参考情報（予想家バイアスを考慮しさらに抑制）
+                "youtube": min(yt_score * 0.35, 7),                                        # max 7
+                # 22. 血統（競馬場適性）: コース特性は父から遺伝
+                "pedigree_venue": min(float(ext.get("sire_hanshin_winrate", 0) or 0) * 20, 6),  # max 6
+                # 23. 血統（重馬場適性）: 重馬場時に差別化要因
+                "pedigree_heavy": min(float(ext.get("sire_heavy_winrate", 0) or 0) * 15, 5),    # max 5
             },
             "raw": {
                 "g1_wins": g1_wins,
