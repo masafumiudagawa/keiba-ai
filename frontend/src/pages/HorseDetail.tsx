@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 const FIN_BG: Record<number, string> = { 1: 'bg-red-600 text-white', 2: 'bg-blue-600 text-white', 3: 'bg-green-600 text-white' }
 const Fin = ({v}:{v:number|string}) => { const n=typeof v==='number'?v:parseInt(String(v)); if(!n||isNaN(n)) return <span className="text-slate-400">-</span>; return <span className={`w-6 h-6 rounded-full ${FIN_BG[n]||'bg-slate-200 text-slate-600'} text-xs font-bold inline-flex items-center justify-center`}>{n}</span> }
@@ -16,6 +16,16 @@ const v = (x: any) => x && x !== 'nan' && x !== '' && x !== 'undefined' ? x : nu
 
 export default function HorseDetail({ horse: h, weights, onBack, weightCategories }: Props) {
   const [tab, setTab] = useState('profile')
+  const [photoIds, setPhotoIds] = useState<string[]>([])
+  const [selectedPhoto, setSelectedPhoto] = useState<number>(0)
+
+  useEffect(() => {
+    if (!h.netkeiba_id) return
+    fetch(`/api/horses/${h.netkeiba_id}/photos`)
+      .then(r => r.json())
+      .then(d => { if (d.photos?.length) setPhotoIds(d.photos) })
+      .catch(() => {})
+  }, [h.netkeiba_id])
 
   const scoreItems = useMemo(() =>
     weightCategories.map(c => ({
@@ -34,12 +44,20 @@ export default function HorseDetail({ horse: h, weights, onBack, weightCategorie
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
         <div className="bg-gradient-to-r from-slate-800 to-blue-900 text-white p-4">
           <div className="flex items-center gap-4">
-            {/* Large Waku Badge = 馬のビジュアル代替 */}
-            <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg ${wakuColor}`}>
-              <div className="text-[10px] opacity-70">{h.post_position}枠</div>
-              <div className="text-3xl sm:text-4xl font-black">{h.gate_number}</div>
-              <div className="text-[9px] opacity-60">{v(h.coat_color) || ''}</div>
-            </div>
+            {/* Horse Photo or Waku Badge */}
+            {photoIds.length > 0 ? (
+              <img
+                src={`/api/horses/${h.netkeiba_id}/photo/${photoIds[0]}`}
+                alt={h.horse_name}
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-lg bg-slate-700"
+              />
+            ) : (
+              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg ${wakuColor}`}>
+                <div className="text-[10px] opacity-70">{h.post_position}枠</div>
+                <div className="text-3xl sm:text-4xl font-black">{h.gate_number}</div>
+                <div className="text-[9px] opacity-60">{v(h.coat_color) || ''}</div>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <h2 className="text-xl sm:text-2xl font-bold truncate">{h.horse_name}</h2>
               <div className="text-blue-200 text-sm">
@@ -90,6 +108,36 @@ export default function HorseDetail({ horse: h, weights, onBack, weightCategorie
         {/* ── Profile ── */}
         {tab === 'profile' && (
           <div className="p-4">
+            {/* 馬画像ギャラリー */}
+            {photoIds.length > 0 && (
+              <div className="mb-4">
+                <div className="rounded-lg overflow-hidden bg-slate-100 mb-2">
+                  <img
+                    src={`/api/horses/${h.netkeiba_id}/photo/${photoIds[selectedPhoto]}`}
+                    alt={`${h.horse_name} - ${selectedPhoto + 1}`}
+                    className="w-full max-h-80 object-contain mx-auto"
+                  />
+                </div>
+                {photoIds.length > 1 && (
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    {photoIds.map((pid, i) => (
+                      <button key={pid} onClick={() => setSelectedPhoto(i)}
+                        className={`shrink-0 rounded overflow-hidden border-2 transition-colors ${
+                          i === selectedPhoto ? 'border-blue-500' : 'border-transparent hover:border-slate-300'
+                        }`}>
+                        <img
+                          src={`/api/horses/${h.netkeiba_id}/photo/${pid}`}
+                          alt={`${h.horse_name} - ${i + 1}`}
+                          className="w-16 h-12 object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 基本情報を明確なラベル付きで */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>

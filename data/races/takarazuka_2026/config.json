@@ -9,9 +9,26 @@
   "course_type": "右・内",
   "post_time": "15:40",
   "trends": {
-    "age_bias": {"3": 0, "4": 20, "5": 25, "6": 8, "7": 3, "8": 2},
-    "style_bias": {"nige": 8, "senko": 5, "sashi": 2, "oikomi": 0},
+    "age_bias": {
+      "3": 0,
+      "4": 20,
+      "5": 25,
+      "6": 8,
+      "7": 3,
+      "8": 2
+    },
+    "style_bias": {
+      "nige": 8,
+      "senko": 5,
+      "sashi": 2,
+      "oikomi": 0
+    },
     "pace_tendency": "front_advantage",
-    "key_factors": ["last_3f", "g1_record", "stamina"]
-  }
+    "key_factors": [
+      "last_3f",
+      "g1_record",
+      "stamina"
+    ]
+  },
+  "netkeiba_race_id": "202609030411"
 }

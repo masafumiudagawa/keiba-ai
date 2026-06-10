@@ -1,11 +1,13 @@
 """レース管理 API（CRUD + 汎用予測）"""
-import os, sys, json, shutil
+import os, sys, json, shutil, re, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
+import requests as http_requests
 
 router = APIRouter()
 
@@ -296,3 +298,71 @@ def get_features(race_id: str):
     weather_info = weather.iloc[-1].to_dict() if not weather.empty else {}
 
     return {"features": horses, "config": config, "weather": weather_info}
+
+
+# ── 馬画像 API ──
+
+_photo_cache: dict[str, list[str]] = {}
+
+@router.get("/horses/{netkeiba_id}/photos")
+def get_horse_photos(netkeiba_id: str):
+    """netkeibaから馬の写真ID一覧を取得（キャッシュ付き）"""
+    if not netkeiba_id or not netkeiba_id.isdigit():
+        return {"photos": []}
+
+    if netkeiba_id in _photo_cache:
+        return {"photos": _photo_cache[netkeiba_id]}
+
+    try:
+        time.sleep(0.5)
+        resp = http_requests.get(
+            f"https://db.netkeiba.com/horse/{netkeiba_id}/",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return {"photos": []}
+
+        photo_ids = re.findall(
+            r'show_photo\.php\?horse_id=' + netkeiba_id + r'&no=(\d+)&tn=yes',
+            resp.text,
+        )
+        # 重複除去して最大8枚
+        seen = set()
+        unique = []
+        for pid in photo_ids:
+            if pid not in seen:
+                seen.add(pid)
+                unique.append(pid)
+        unique = unique[:8]
+
+        _photo_cache[netkeiba_id] = unique
+        return {"photos": unique}
+    except Exception:
+        return {"photos": []}
+
+
+@router.get("/horses/{netkeiba_id}/photo/{photo_id}")
+def proxy_horse_photo(netkeiba_id: str, photo_id: str):
+    """netkeibaの馬画像をプロキシして返す"""
+    if not netkeiba_id.isdigit() or not photo_id.isdigit():
+        raise HTTPException(400, "Invalid ID")
+
+    try:
+        resp = http_requests.get(
+            f"https://db.netkeiba.com/show_photo.php?horse_id={netkeiba_id}&no={photo_id}&tn=no&tmp=no",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+        )
+        if resp.status_code != 200 or not resp.content:
+            raise HTTPException(404, "Photo not found")
+
+        return Response(
+            content=resp.content,
+            media_type=resp.headers.get("Content-Type", "image/jpeg"),
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "Failed to fetch photo")
