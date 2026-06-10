@@ -291,22 +291,51 @@ def get_features(race_id: str):
             "netkeiba_id": str(ext.get("netkeiba_id", "")).replace(".0", "").strip(),
             "recent_5": recent_5,
             "scores": {
+                # 1. 馬齢
                 "age": float(age_bias.get(str(age), 0)),
-                "recent_form": (18 - min(max(last1, 1), 18)) * 1.5 + (18 - min(max(last2, 1), 18)) * 0.8,
-                "g1_record": float(np.log1p(g1_wins) * 15 + g1_place * 5),
+                # 2. 前走着順
+                "last_finish": (18 - min(max(last1, 1), 18)) * 1.5,
+                # 3. 2走前着順
+                "second_last_finish": (18 - min(max(last2, 1), 18)) * 0.8,
+                # 4. G1勝利
+                "g1_wins": float(np.log1p(g1_wins) * 15),
+                # 5. G1複勝
+                "g1_places": float(g1_place * 5),
+                # 6. 通算勝率
                 "career_win_rate": round(career_win_rate * 15, 1),
+                # 7. 距離適性
                 "distance_aptitude": round(dist_apt, 1),
+                # 8. コース経験
                 "venue_experience": round(venue_exp, 1),
-                "jockey": float(np.log1p(j_g1) * 4.5 + j_wr * 25),
+                # 9. 騎手G1
+                "jockey_g1": float(np.log1p(j_g1) * 4.5),
+                # 10. 騎手勝率
+                "jockey_win_rate": float(j_wr * 25),
+                # 11. 上がり3F
                 "last_3f": float((37 - min(max(best3f, 32), 37)) * 5) if best3f > 0 else 0,
+                # 12. スピード指数
                 "speed_figure": float((speed - 90) * 1.5) if speed > 0 else 0,
-                "pedigree": float(ext.get("sire_turf2200_winrate", 0) or 0) * 10 + float(ext.get("sire_hanshin_winrate", 0) or 0) * 8 + float(ext.get("sire_heavy_winrate", 0) or 0) * 5,
-                "public_opinion": min(yt_score * 0.5 + news_score * 0.5, 20),
+                # 13. 血統（距離）
+                "pedigree_distance": float(ext.get("sire_turf2200_winrate", 0) or 0) * 10,
+                # 14. 血統（競馬場）
+                "pedigree_venue": float(ext.get("sire_hanshin_winrate", 0) or 0) * 8,
+                # 15. 血統（重馬場）
+                "pedigree_heavy": float(ext.get("sire_heavy_winrate", 0) or 0) * 5,
+                # 16. YouTube世論
+                "youtube": min(yt_score * 0.5, 10),
+                # 17. ニュース世論
+                "news": min(news_score * 0.5, 10),
+                # 18. 調教
                 "training": (train_val - 3) * 5,
+                # 19. 脚質
                 "running_style": float(style_bias.get(style_name, 0)),
+                # 20. 対戦成績
                 "head_to_head": (int(ext.get("head2head_wins", 0) or 0) / max(int(ext.get("head2head_total", 0) or 0), 1)) * 15 if int(ext.get("head2head_total", 0) or 0) > 0 else 0,
+                # 21. 休養
                 "rest": float({"good": 6, "ok": 3, "poor": 0}.get(str(ext.get("rest_performance", "")), 3)),
-                "trainer": float(np.log1p(int(ext.get("trainer_g1_wins", 0) or 0)) * 3),
+                # 22. 厩舎
+                "trainer_score": float(np.log1p(int(ext.get("trainer_g1_wins", 0) or 0)) * 3),
+                # 23. 体重推移
                 "weight_trend": float({"stable": 4, "increasing": 2, "decreasing": 0}.get(str(ext.get("weight_trend", "")), 2)),
             },
             "raw": {

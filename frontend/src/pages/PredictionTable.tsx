@@ -5,21 +5,40 @@ const MARK_COLORS: Record<string, string> = { '◎': 'text-red-600', '○': 'tex
 const WAKU_BG: Record<number, string> = { 1: 'bg-white border border-slate-300 text-slate-800', 2: 'bg-gray-900 text-white', 3: 'bg-red-600 text-white', 4: 'bg-blue-600 text-white', 5: 'bg-yellow-400 text-gray-900', 6: 'bg-green-600 text-white', 7: 'bg-orange-500 text-white', 8: 'bg-pink-500 text-white' }
 const FIN_BG: Record<number, string> = { 1: 'bg-red-600 text-white', 2: 'bg-blue-600 text-white', 3: 'bg-green-600 text-white' }
 
-const WEIGHT_CATEGORIES = [
-  { key: 'age', label: '馬齢' }, { key: 'recent_form', label: '近走' }, { key: 'g1_record', label: 'G1' },
-  { key: 'career_win_rate', label: '勝率' }, { key: 'distance_aptitude', label: '距離' },
-  { key: 'venue_experience', label: 'コース' }, { key: 'jockey', label: '騎手' }, { key: 'last_3f', label: '3F' },
-  { key: 'speed_figure', label: '能力' }, { key: 'pedigree', label: '血統' }, { key: 'public_opinion', label: '世論' },
-  { key: 'training', label: '調教' }, { key: 'running_style', label: '脚質' }, { key: 'head_to_head', label: '対戦' },
-  { key: 'rest', label: '休養' }, { key: 'trainer', label: '厩舎' }, { key: 'weight_trend', label: '体重' },
+// UIスライダー: グループ単位。各グループが複数のscoreキーに適用される
+const WEIGHT_GROUPS = [
+  { key: 'age', label: '馬齢', scores: ['age'] },
+  { key: 'recent', label: '近走', scores: ['last_finish', 'second_last_finish'] },
+  { key: 'g1', label: 'G1', scores: ['g1_wins', 'g1_places'] },
+  { key: 'winrate', label: '勝率', scores: ['career_win_rate'] },
+  { key: 'distance', label: '距離', scores: ['distance_aptitude'] },
+  { key: 'venue', label: 'コース', scores: ['venue_experience'] },
+  { key: 'jockey', label: '騎手', scores: ['jockey_g1', 'jockey_win_rate'] },
+  { key: 'last3f', label: '3F', scores: ['last_3f'] },
+  { key: 'speed', label: '能力', scores: ['speed_figure'] },
+  { key: 'pedigree', label: '血統', scores: ['pedigree_distance', 'pedigree_venue', 'pedigree_heavy'] },
+  { key: 'opinion', label: '世論', scores: ['youtube', 'news'] },
+  { key: 'training', label: '調教', scores: ['training'] },
+  { key: 'style', label: '脚質', scores: ['running_style'] },
+  { key: 'h2h', label: '対戦', scores: ['head_to_head'] },
+  { key: 'rest', label: '休養', scores: ['rest'] },
+  { key: 'trainer', label: '厩舎', scores: ['trainer_score'] },
+  { key: 'weight', label: '体重', scores: ['weight_trend'] },
 ]
+// scoreキー → グループキーの逆引きマップ
+const SCORE_TO_GROUP: Record<string, string> = {}
+WEIGHT_GROUPS.forEach(g => g.scores.forEach(s => { SCORE_TO_GROUP[s] = g.key }))
+
+// 互換用: HorseDetailに渡す用
+const WEIGHT_CATEGORIES = WEIGHT_GROUPS.map(g => ({ key: g.key, label: g.label }))
+
 const PRESETS: Record<string, Record<string, number>> = {
-  standard: Object.fromEntries(WEIGHT_CATEGORIES.map(c => [c.key, 1.0])),
-  data: { age:1,recent_form:1.3,g1_record:1.3,career_win_rate:1.2,distance_aptitude:1.2,venue_experience:1,jockey:1,last_3f:1.5,speed_figure:1.5,pedigree:1,public_opinion:0.3,training:0.8,running_style:1,head_to_head:1.2,rest:1,trainer:0.8,weight_trend:1 },
-  upset: { age:0.5,recent_form:0.5,g1_record:0.3,career_win_rate:0.5,distance_aptitude:1,venue_experience:1.5,jockey:0.5,last_3f:2,speed_figure:1.5,pedigree:1.2,public_opinion:0.2,training:1.5,running_style:1.5,head_to_head:0.5,rest:1.2,trainer:0.5,weight_trend:1 },
-  pedigree: { age:0.8,recent_form:0.8,g1_record:1,career_win_rate:0.8,distance_aptitude:1.3,venue_experience:1,jockey:0.8,last_3f:1,speed_figure:1,pedigree:2,public_opinion:0.3,training:0.8,running_style:1,head_to_head:0.8,rest:1,trainer:1,weight_trend:1 },
-  jockey: { age:1,recent_form:1,g1_record:1,career_win_rate:1,distance_aptitude:1,venue_experience:1.2,jockey:2,last_3f:1,speed_figure:1,pedigree:0.8,public_opinion:0.5,training:1.2,running_style:1,head_to_head:1,rest:1,trainer:1.2,weight_trend:1 },
-  course: { age:0.8,recent_form:1,g1_record:0.8,career_win_rate:1,distance_aptitude:1.8,venue_experience:2,jockey:1,last_3f:1.2,speed_figure:1,pedigree:1.3,public_opinion:0.3,training:1,running_style:1.2,head_to_head:1,rest:1,trainer:1,weight_trend:1 },
+  standard: Object.fromEntries(WEIGHT_GROUPS.map(g => [g.key, 1.0])),
+  data: { age:1,recent:1.3,g1:1.3,winrate:1.2,distance:1.2,venue:1,jockey:1,last3f:1.5,speed:1.5,pedigree:1,opinion:0.3,training:0.8,style:1,h2h:1.2,rest:1,trainer:0.8,weight:1 },
+  upset: { age:0.5,recent:0.5,g1:0.3,winrate:0.5,distance:1,venue:1.5,jockey:0.5,last3f:2,speed:1.5,pedigree:1.2,opinion:0.2,training:1.5,style:1.5,h2h:0.5,rest:1.2,trainer:0.5,weight:1 },
+  pedigree: { age:0.8,recent:0.8,g1:1,winrate:0.8,distance:1.3,venue:1,jockey:0.8,last3f:1,speed:1,pedigree:2,opinion:0.3,training:0.8,style:1,h2h:0.8,rest:1,trainer:1,weight:1 },
+  jockey: { age:1,recent:1,g1:1,winrate:1,distance:1,venue:1.2,jockey:2,last3f:1,speed:1,pedigree:0.8,opinion:0.5,training:1.2,style:1,h2h:1,rest:1,trainer:1.2,weight:1 },
+  course: { age:0.8,recent:1,g1:0.8,winrate:1,distance:1.8,venue:2,jockey:1,last3f:1.2,speed:1,pedigree:1.3,opinion:0.3,training:1,style:1.2,h2h:1,rest:1,trainer:1,weight:1 },
 }
 
 interface Recent { date:string;venue:string;race:string;dist:number;finish:number|string;grade:string;time:string;last3f:string;passing:string }
@@ -42,7 +61,7 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
 
   const ranked = useMemo(() => {
     if(!features.length) return []
-    const scored = features.map(h=>{const total=Object.entries(h.scores).reduce((s,[k,v])=>s+v*(weights[k]??1),0);return{...h,total}})
+    const scored = features.map(h=>{const total=Object.entries(h.scores).reduce((s,[k,v])=>s+v*(weights[SCORE_TO_GROUP[k]||k]??1),0);return{...h,total}})
     const mn=Math.min(...scored.map(s=>s.total)),mx=Math.max(...scored.map(s=>s.total)),rng=mx-mn
     const wp=rng>0?scored.map(s=>({...s,prob:(s.total-mn)/rng})):scored.map(s=>({...s,prob:1/scored.length}))
     const ps=wp.reduce((s,h)=>s+h.prob,0)||1
@@ -58,7 +77,7 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
   if (selectedHorse) {
     const horse = ranked.find(h => h.horse_name === selectedHorse)
     if (horse) {
-      return <HorseDetail horse={horse} weights={weights} onBack={() => setSelectedHorse(null)} weightCategories={WEIGHT_CATEGORIES} />
+      return <HorseDetail horse={horse} weights={weights} onBack={() => setSelectedHorse(null)} weightCategories={WEIGHT_GROUPS} />
     }
   }
 
@@ -171,9 +190,13 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
             {/* Expanded: Score Breakdown */}
             {isExp&&<div className="bg-slate-50 px-3 py-2 border-t border-slate-100">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
-                {WEIGHT_CATEGORIES.map(c=>{const w=(h.scores[c.key]||0)*(weights[c.key]??1);return(
-                  <div key={c.key} className="flex items-center gap-1 text-[10px]">
-                    <span className="w-8 text-slate-400 shrink-0">{c.label}</span>
+                {WEIGHT_GROUPS.map(g=>{
+                  const groupW = weights[g.key]??1
+                  const raw = g.scores.reduce((s,sk)=>s+(h.scores[sk]||0),0)
+                  const w = raw * groupW
+                  return(
+                  <div key={g.key} className="flex items-center gap-1 text-[10px]">
+                    <span className="w-8 text-slate-400 shrink-0">{g.label}</span>
                     <div className="flex-1 bg-slate-200 rounded-full h-1"><div className="bg-blue-500 h-1 rounded-full" style={{width:`${Math.min(w/2,100)}%`}}/></div>
                     <span className="w-5 text-right font-mono text-slate-600">{w.toFixed(0)}</span>
                   </div>

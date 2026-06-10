@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 const FIN_BG: Record<number, string> = { 1: 'bg-red-600 text-white', 2: 'bg-blue-600 text-white', 3: 'bg-green-600 text-white' }
 const Fin = ({v}:{v:number|string}) => { const n=typeof v==='number'?v:parseInt(String(v)); if(!n||isNaN(n)) return <span className="text-slate-400">-</span>; return <span className={`w-6 h-6 rounded-full ${FIN_BG[n]||'bg-slate-200 text-slate-600'} text-xs font-bold inline-flex items-center justify-center`}>{n}</span> }
 
-interface Props { horse: any; weights: Record<string, number>; onBack: () => void; weightCategories: { key: string; label: string }[] }
+interface Props { horse: any; weights: Record<string, number>; onBack: () => void; weightCategories: { key: string; label: string; scores: string[] }[] }
 
 const TABS = [
   { id: 'profile', label: 'プロフィール' },
@@ -28,10 +28,10 @@ export default function HorseDetail({ horse: h, weights, onBack, weightCategorie
   }, [h.netkeiba_id])
 
   const scoreItems = useMemo(() =>
-    weightCategories.map(c => ({
-      ...c, raw: h.scores[c.key] || 0,
-      weighted: (h.scores[c.key] || 0) * (weights[c.key] ?? 1),
-    })).sort((a, b) => b.weighted - a.weighted)
+    weightCategories.map(c => {
+      const raw = (c.scores || [c.key]).reduce((s: number, sk: string) => s + (h.scores[sk] || 0), 0)
+      return { ...c, raw, weighted: raw * (weights[c.key] ?? 1) }
+    }).sort((a, b) => b.weighted - a.weighted)
   , [h, weights, weightCategories])
 
   const wakuColor = ({1:'bg-white text-slate-800 border-2 border-slate-300',2:'bg-gray-800',3:'bg-red-600',4:'bg-blue-600',5:'bg-yellow-400 text-gray-900',6:'bg-green-600',7:'bg-orange-500',8:'bg-pink-500'} as Record<number,string>)[h.post_position as number] || 'bg-slate-400'
