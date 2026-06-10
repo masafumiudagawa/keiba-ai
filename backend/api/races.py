@@ -256,7 +256,7 @@ def get_features(race_id: str):
             "coat_color": str(ext.get("coat_color", "")),
             "english_name": str(ext.get("english_name", "")),
             "total_prize": str(ext.get("total_prize", "")),
-            "netkeiba_id": str(ext.get("netkeiba_id", "")),
+            "netkeiba_id": str(ext.get("netkeiba_id", "")).replace(".0", "").strip(),
             "recent_5": recent_5,
             "scores": {
                 "age": float(age_bias.get(str(age), 0)),

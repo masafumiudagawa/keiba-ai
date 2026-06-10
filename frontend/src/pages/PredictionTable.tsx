@@ -99,26 +99,29 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
 
               {/* Horse Info */}
               <div className="flex-1 min-w-0 py-1.5 pr-2">
+                {/* Line 1: 馬名 + 属性 */}
                 <div className="flex items-baseline gap-1 flex-wrap">
                   <span className={`font-bold text-sm ${h.rank===1?'text-red-600':h.rank<=3?'text-blue-700':''}`}>{h.horse_name}</span>
-                  <span className="text-[10px] text-slate-400">{h.sex}{h.age} {h.coat_color&&h.coat_color!=='nan'?h.coat_color:''}</span>
+                  <span className="text-[10px] text-slate-400">{h.sex}{h.age}</span>
+                  {h.coat_color&&h.coat_color!=='nan'&&<span className="text-[10px] text-slate-400">{h.coat_color}</span>}
                   <span className="text-[10px] bg-slate-100 text-slate-500 px-1 rounded">{h.running_style_label}</span>
                   {h.netkeiba_id&&h.netkeiba_id!=='nan'&&h.netkeiba_id!==''&&
                     <a href={nkLink(h.netkeiba_id)} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
-                      className="text-[10px] text-blue-500 hover:text-blue-700">↗詳細</a>}
+                      className="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">netkeiba↗</a>}
                 </div>
-                <div className="text-[10px] text-slate-400 leading-snug">
-                  <span className="font-medium text-slate-500">{h.jockey}</span>
-                  <span className="mx-1">|</span>
-                  {h.sire&&h.sire!=='nan'?h.sire:''}{h.dam_sire&&h.dam_sire!=='nan'&&h.dam_sire!==''?`×${h.dam_sire}`:''}
+                {/* Line 2: 騎手 + 血統 */}
+                <div className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                  <span className="text-slate-400">騎手:</span><span className="font-medium ml-0.5">{h.jockey}</span>
+                  <span className="mx-1 text-slate-300">|</span>
+                  <span className="text-slate-400">血統:</span><span className="ml-0.5">{h.sire&&h.sire!=='nan'?h.sire:'-'}{h.dam_sire&&h.dam_sire!=='nan'&&h.dam_sire!==''?` × ${h.dam_sire}`:''}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 leading-snug">
-                  {h.trainer&&h.trainer!=='nan'?h.trainer:''}
-                  {h.weight&&h.weight!=='nan'?` ${h.weight}kg`:''}
-                  <span className="mx-1">|</span>
-                  {h.career}
-                  {h.owner&&h.owner!=='nan'?` | ${h.owner}`:''}
-                  {h.total_prize&&h.total_prize!=='nan'&&h.total_prize!==''?` | ${Number(h.total_prize).toLocaleString()}万`:''}
+                {/* Line 3: 調教師 + 馬体重 + 戦績 + 馬主 + 賞金 */}
+                <div className="text-[10px] text-slate-500 leading-snug">
+                  {h.trainer&&h.trainer!=='nan'&&<><span className="text-slate-400">厩舎:</span><span className="ml-0.5">{h.trainer}</span><span className="mx-1 text-slate-300">|</span></>}
+                  {h.weight&&h.weight!=='nan'&&<><span className="text-slate-400">体重:</span><span className="ml-0.5">{h.weight}kg</span><span className="mx-1 text-slate-300">|</span></>}
+                  <span className="text-slate-400">成績:</span><span className="ml-0.5">{h.career}</span>
+                  {h.owner&&h.owner!=='nan'&&<><span className="mx-1 text-slate-300">|</span><span className="text-slate-400">馬主:</span><span className="ml-0.5">{h.owner}</span></>}
+                  {h.total_prize&&h.total_prize!=='nan'&&h.total_prize!==''&&<><span className="mx-1 text-slate-300">|</span><span className="text-slate-400">賞金:</span><span className="ml-0.5">{Number(h.total_prize).toLocaleString()}万</span></>}
                 </div>
               </div>
 
