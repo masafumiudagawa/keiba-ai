@@ -1,322 +1,371 @@
 """
-買い目最適化エンジン（ケリー基準 + 期待値ベース）
+買い目最適化エンジン v2（バリューベース）
+
+核心: 期待値 = AI確率 × 実オッズ
+  期待値 > 1.0 → バリューあり（市場が過小評価）
+  期待値 < 1.0 → バリューなし（市場が過大評価）
 
 JRA控除率:
-  単勝/複勝: 20% → 還元率80%
+  単勝/複勝: 20%  → 還元率80%
   馬連/ワイド: 22.5% → 還元率77.5%
-  三連複: 25% → 還元率75%
+  馬単: 22.5%
+  三連複: 25%  → 還元率75%
   三連単: 27.5% → 還元率72.5%
 """
-from itertools import combinations
+from itertools import combinations, permutations
 
 TAKEOUT = {
-    "win": 0.80,
-    "place": 0.80,
-    "exacta": 0.775,     # 馬単
-    "quinella": 0.775,    # 馬連
-    "wide": 0.775,
-    "trio": 0.75,         # 三連複
-    "trifecta": 0.725,    # 三連単
+    "win": 0.80, "place": 0.80,
+    "exacta": 0.775, "quinella": 0.775, "wide": 0.775,
+    "trio": 0.75, "trifecta": 0.725,
 }
 
 
-def kelly_fraction(p: float, odds: float) -> float:
-    """ケリー基準: f* = (p*b - q) / b"""
+def kelly_fraction(p: float, odds: float, scale: float = 0.25) -> float:
+    """ケリー基準: f* = (p*b - q) / b  (scale で保守的に)"""
     if odds <= 1 or p <= 0 or p >= 1:
         return 0.0
     b = odds - 1
     q = 1 - p
     f = (p * b - q) / b
-    return max(f, 0.0)
+    return max(f * scale, 0.0)
 
 
-def _estimate_win_odds(p: float) -> float:
-    """単勝オッズを確率から推定
-    市場の歪みを考慮: 人気馬は実力より過小評価（オッズ高め）される傾向
-    """
-    if p <= 0:
-        return 200.0
-    # 人気薄ほどオッズが過大に付く（ロングショットバイアス逆転）
-    market_adj = 1.1 if p > 0.15 else 1.0 if p > 0.08 else 0.9
-    return round(max(TAKEOUT["win"] / p * market_adj, 1.1), 1)
+def implied_prob(odds: float) -> float:
+    """オッズから市場の想定確率（控除前）を算出"""
+    if odds <= 0:
+        return 0.0
+    return 1.0 / odds
 
 
-def _estimate_place_odds(p: float) -> float:
-    """複勝オッズを確率から推定"""
-    if p <= 0:
-        return 50.0
-    return round(max(TAKEOUT["place"] / p * 1.05, 1.1), 1)
+def value_score(ai_prob: float, market_odds: float) -> float:
+    """バリュースコア = AI確率 × オッズ（= 期待値）"""
+    return ai_prob * market_odds
 
 
-def _quinella_prob(p1: float, p2: float, pp1: float, pp2: float) -> float:
-    """馬連の的中確率: A-Bが1-2着（順不同）"""
-    # P(A1着)*P(B2着|A1着) + P(B1着)*P(A2着|B1着)
-    # 近似: P(A1着) * P(B|残り馬で2着) + 逆
-    pb_given_a = p2 / (1 - p1) if p1 < 1 else 0
-    pa_given_b = p1 / (1 - p2) if p2 < 1 else 0
+# ── 複合馬券の確率計算 ──
+
+def _quinella_prob(p1: float, p2: float) -> float:
+    """馬連: A-Bが1-2着（順不同）"""
+    if p1 + p2 >= 1:
+        return min(p1 * p2 * 8, 0.5)
+    pb_given_a = p2 / (1 - p1)
+    pa_given_b = p1 / (1 - p2)
     return p1 * pb_given_a + p2 * pa_given_b
 
 
 def _wide_prob(pp1: float, pp2: float, field: int) -> float:
-    """ワイドの的中確率: 両方3着以内"""
-    # 近似: P(A in top3) * P(B in top3 | A in top3)
-    # 条件付確率で調整
-    return pp1 * pp2 * (field / (field - 1)) * 0.85
+    """ワイド: 両方3着以内"""
+    return pp1 * pp2 * (field / max(field - 1, 1)) * 0.85
 
 
 def _trio_prob(pp1: float, pp2: float, pp3: float, field: int) -> float:
-    """三連複の的中確率: 3頭が3着以内"""
-    # P(A,B,C全て3着以内) ≈ 組合せ確率
-    # 3!/C(field,3) * pp1 * pp2 * pp3 の調整版
+    """三連複: 3頭が3着以内"""
     base = pp1 * pp2 * pp3
-    # 条件付確率補正: 1頭入ると残り枠が減る
-    correction = (3 / field) * (2 / (field - 1)) * (1 / (field - 2)) * (field ** 3) / 6
+    correction = (3 / field) * (2 / max(field - 1, 1)) * (1 / max(field - 2, 1)) * (field ** 3) / 6
     return min(base * correction, 0.5)
 
 
-def optimize_bets(predictions: list[dict], budget: int,
-                  risk_level: str = "medium",
-                  bet_types: list[str] = None,
-                  odds: dict = None,
-                  excluded_horses: list[str] = None) -> dict:
+def _exacta_prob(p1: float, p2: float) -> float:
+    """馬単: A→B（着順あり）"""
+    if p1 >= 1:
+        return 0.0
+    return p1 * (p2 / (1 - p1))
+
+
+def _trifecta_prob(p1: float, p2: float, p3: float) -> float:
+    """三連単: A→B→C（着順あり）"""
+    if p1 >= 1 or p1 + p2 >= 1:
+        return 0.0
+    return p1 * (p2 / (1 - p1)) * (p3 / (1 - p1 - p2))
+
+
+# ── 連勝式オッズの推定（実オッズがない場合） ──
+
+def _estimate_combo_odds(prob: float, takeout: float, max_odds: float = 9999.9) -> float:
+    """確率から推定オッズを算出（実オッズがない場合のフォールバック）"""
+    if prob <= 0:
+        return max_odds
+    return round(min(max(takeout / prob, 1.5), max_odds), 1)
+
+
+# 連勝式オッズの上限
+MAX_ODDS = {
+    "win": 999.9, "place": 200.0,
+    "quinella": 5000.0, "wide": 1000.0,
+    "exacta": 10000.0, "trio": 50000.0, "trifecta": 200000.0,
+}
+
+
+def _combo_odds_from_singles(singles: list[float], bet_type: str) -> float:
+    """単勝オッズの積から連勝式オッズを推定（上限付き）"""
+    product = 1.0
+    for o in singles:
+        product *= o
+
+    coefficients = {
+        "quinella": 0.35, "wide": 0.12, "exacta": 0.7,
+        "trio": 0.08, "trifecta": 0.15,
+    }
+    coeff = coefficients.get(bet_type, 0.1)
+    min_odds = {"quinella": 2.0, "wide": 1.2, "exacta": 5.0, "trio": 5.0, "trifecta": 20.0}
+
+    raw = product * coeff
+    return round(min(max(raw, min_odds.get(bet_type, 1.5)), MAX_ODDS.get(bet_type, 9999.9)), 1)
+
+
+# ── メイン最適化関数 ──
+
+def optimize_value_bets(
+    horses: list[dict],
+    actual_odds: dict,
+    budget: int,
+    risk_level: str = "medium",
+    bet_types: list[str] = None,
+) -> dict:
+    """
+    バリューベースの買い目最適化
+
+    horses: [{horse_name, ai_win_prob, ai_place_prob}, ...]
+    actual_odds: {horse_name: win_odds} (odds.csvから)
+    """
     if bet_types is None:
         bet_types = ["win", "quinella", "wide", "trio"]
-    if odds is None:
-        odds = {}
-    if excluded_horses is None:
-        excluded_horses = []
 
-    kelly_scale = {"low": 0.15, "medium": 0.3, "high": 0.5}.get(risk_level, 0.3)
-
-    horses = [p for p in predictions if p["horse_name"] not in excluded_horses]
-    horses.sort(key=lambda x: x["win_probability"], reverse=True)
     field = len(horses)
+    kelly_scale = {"low": 0.10, "medium": 0.20, "high": 0.35}.get(risk_level, 0.20)
 
+    # ── バリュー分析（単勝ベース） ──
+    value_analysis = []
+    for h in horses:
+        name = h["horse_name"]
+        ai_p = h["ai_win_prob"]
+        ai_pp = h["ai_place_prob"]
+        market_odds = actual_odds.get(name, 0)
+        market_p = implied_prob(market_odds) if market_odds > 0 else 0
+
+        ev = value_score(ai_p, market_odds) if market_odds > 0 else 0
+        gap = ai_p - market_p  # 正なら過小評価（買い）、負なら過大評価（消し）
+
+        value_analysis.append({
+            "horse_name": name,
+            "ai_win_prob": round(ai_p, 4),
+            "ai_place_prob": round(ai_pp, 4),
+            "market_odds": market_odds,
+            "market_prob": round(market_p, 4),
+            "expected_value": round(ev, 3),
+            "prob_gap": round(gap, 4),
+            "verdict": "BUY" if ev > 1.0 else "WATCH" if ev > 0.8 else "FADE",
+        })
+
+    value_analysis.sort(key=lambda x: x["expected_value"], reverse=True)
+
+    # ── 全買い目候補の生成 ──
     all_bets = []
 
-    # ── 単勝 ──
+    # 単勝
     if "win" in bet_types:
-        win_odds_map = odds.get("win", {})
-        for h in horses[:6]:
+        for h in horses:
             name = h["horse_name"]
-            p = h["win_probability"]
-            o = win_odds_map.get(name, _estimate_win_odds(p))
-            ev = p * o
-            kf = kelly_fraction(p, o) * kelly_scale
+            ai_p = h["ai_win_prob"]
+            odds = actual_odds.get(name, 0)
+            if odds <= 0:
+                continue
+            ev = ai_p * odds
+            kf = kelly_fraction(ai_p, odds, kelly_scale)
             all_bets.append({
                 "bet_type": "win", "bet_type_ja": "単勝",
-                "selection": name, "odds": round(o, 1),
-                "hit_prob": round(p, 4), "expected_value": round(ev, 3),
-                "kelly_fraction": kf,
+                "selection": name, "odds": odds,
+                "hit_prob": round(ai_p, 4),
+                "expected_value": round(ev, 3),
+                "kelly": kf,
             })
 
-    # ── 複勝 ──
+    # 複勝
     if "place" in bet_types:
-        place_odds_map = odds.get("place", {})
-        for h in horses[:6]:
+        for h in horses:
             name = h["horse_name"]
-            pp = h.get("place_probability", min(h["win_probability"] * 2.5, 0.9))
-            o = place_odds_map.get(name, _estimate_place_odds(pp))
-            ev = pp * o
-            kf = kelly_fraction(pp, o) * kelly_scale
+            ai_pp = h["ai_place_prob"]
+            win_odds = actual_odds.get(name, 0)
+            if win_odds <= 0:
+                continue
+            # 複勝オッズ推定: 単勝オッズの約1/3〜1/4
+            place_odds = round(max(win_odds * 0.3, 1.1), 1)
+            ev = ai_pp * place_odds
+            kf = kelly_fraction(ai_pp, place_odds, kelly_scale)
             all_bets.append({
                 "bet_type": "place", "bet_type_ja": "複勝",
-                "selection": name, "odds": round(o, 1),
-                "hit_prob": round(pp, 4), "expected_value": round(ev, 3),
-                "kelly_fraction": kf,
+                "selection": name, "odds": place_odds,
+                "hit_prob": round(ai_pp, 4),
+                "expected_value": round(ev, 3),
+                "kelly": kf,
             })
 
-    # ── 馬連 ──
+    # 馬連
     if "quinella" in bet_types:
-        quinella_odds_map = odds.get("quinella", {})
-        for a, b in combinations(horses[:6], 2):
-            key = f"{a['horse_name']}-{b['horse_name']}"
-            pa, pb = a["win_probability"], b["win_probability"]
-            ppa = a.get("place_probability", min(pa * 2.5, 0.9))
-            ppb = b.get("place_probability", min(pb * 2.5, 0.9))
-            p = _quinella_prob(pa, pb, ppa, ppb)
-            o = quinella_odds_map.get(key, round(max(TAKEOUT["quinella"] / max(p, 0.001) * 1.15, 2.0), 1))
-            ev = p * o
-            kf = kelly_fraction(p, o) * kelly_scale
+        top_n = _top_n_for_risk(risk_level, field)
+        sorted_h = sorted(horses, key=lambda x: x["ai_win_prob"], reverse=True)[:top_n]
+        for a, b in combinations(sorted_h, 2):
+            p = _quinella_prob(a["ai_win_prob"], b["ai_win_prob"])
+            oa = actual_odds.get(a["horse_name"], 0)
+            ob = actual_odds.get(b["horse_name"], 0)
+            if oa <= 0 or ob <= 0:
+                odds = _estimate_combo_odds(p, TAKEOUT["quinella"])
+            else:
+                # 単勝オッズの積から馬連オッズを推定
+                odds = _combo_odds_from_singles([oa, ob], "quinella")
+            ev = p * odds
+            kf = kelly_fraction(p, odds, kelly_scale)
             all_bets.append({
                 "bet_type": "quinella", "bet_type_ja": "馬連",
                 "selection": f"{a['horse_name']} - {b['horse_name']}",
-                "odds": round(o, 1), "hit_prob": round(p, 4),
-                "expected_value": round(ev, 3), "kelly_fraction": kf,
+                "odds": odds, "hit_prob": round(p, 4),
+                "expected_value": round(ev, 3), "kelly": kf,
             })
 
-    # ── ワイド ──
+    # ワイド
     if "wide" in bet_types:
-        wide_odds_map = odds.get("wide", {})
-        for a, b in combinations(horses[:6], 2):
-            key = f"{a['horse_name']}-{b['horse_name']}"
-            ppa = a.get("place_probability", min(a["win_probability"] * 2.5, 0.9))
-            ppb = b.get("place_probability", min(b["win_probability"] * 2.5, 0.9))
-            p = _wide_prob(ppa, ppb, field)
-            o = wide_odds_map.get(key, round(max(TAKEOUT["wide"] / max(p, 0.001) * 1.1, 1.5), 1))
-            ev = p * o
-            kf = kelly_fraction(p, o) * kelly_scale
+        top_n = _top_n_for_risk(risk_level, field)
+        sorted_h = sorted(horses, key=lambda x: x["ai_win_prob"], reverse=True)[:top_n]
+        for a, b in combinations(sorted_h, 2):
+            p = _wide_prob(a["ai_place_prob"], b["ai_place_prob"], field)
+            oa = actual_odds.get(a["horse_name"], 0)
+            ob = actual_odds.get(b["horse_name"], 0)
+            if oa <= 0 or ob <= 0:
+                odds = _estimate_combo_odds(p, TAKEOUT["wide"])
+            else:
+                odds = _combo_odds_from_singles([oa, ob], "wide")
+            ev = p * odds
+            kf = kelly_fraction(p, odds, kelly_scale)
             all_bets.append({
                 "bet_type": "wide", "bet_type_ja": "ワイド",
                 "selection": f"{a['horse_name']} - {b['horse_name']}",
-                "odds": round(o, 1), "hit_prob": round(p, 4),
-                "expected_value": round(ev, 3), "kelly_fraction": kf,
+                "odds": odds, "hit_prob": round(p, 4),
+                "expected_value": round(ev, 3), "kelly": kf,
             })
 
-    # ── 馬単（A→B 着順あり）──
+    # 馬単
     if "exacta" in bet_types:
-        exacta_odds_map = odds.get("exacta", {})
-        for a, b in combinations(horses[:6], 2):
+        top_n = _top_n_for_risk(risk_level, field)
+        sorted_h = sorted(horses, key=lambda x: x["ai_win_prob"], reverse=True)[:top_n]
+        for a, b in combinations(sorted_h, 2):
             for first, second in [(a, b), (b, a)]:
-                key = f"{first['horse_name']}→{second['horse_name']}"
-                p1 = first["win_probability"]
-                p2_given = second["win_probability"] / (1 - p1) if p1 < 1 else 0
-                p = p1 * p2_given
-                o = exacta_odds_map.get(key, round(max(TAKEOUT["exacta"] / max(p, 0.0001) * 1.15, 5.0), 1))
-                ev = p * o
-                kf = kelly_fraction(p, o) * kelly_scale
+                p = _exacta_prob(first["ai_win_prob"], second["ai_win_prob"])
+                of_ = actual_odds.get(first["horse_name"], 0)
+                os_ = actual_odds.get(second["horse_name"], 0)
+                if of_ <= 0 or os_ <= 0:
+                    odds = _estimate_combo_odds(p, TAKEOUT["exacta"])
+                else:
+                    odds = _combo_odds_from_singles([of_, os_], "exacta")
+                ev = p * odds
+                kf = kelly_fraction(p, odds, kelly_scale)
                 all_bets.append({
                     "bet_type": "exacta", "bet_type_ja": "馬単",
                     "selection": f"{first['horse_name']} → {second['horse_name']}",
-                    "odds": round(o, 1), "hit_prob": round(p, 4),
-                    "expected_value": round(ev, 3), "kelly_fraction": kf,
+                    "odds": odds, "hit_prob": round(p, 4),
+                    "expected_value": round(ev, 3), "kelly": kf,
                 })
 
-    # ── 三連複 ──
+    # 三連複
     if "trio" in bet_types:
-        trio_odds_map = odds.get("trio", {})
-        for a, b, c in combinations(horses[:7], 3):
-            key = f"{a['horse_name']}-{b['horse_name']}-{c['horse_name']}"
-            ppa = a.get("place_probability", min(a["win_probability"] * 2.5, 0.9))
-            ppb = b.get("place_probability", min(b["win_probability"] * 2.5, 0.9))
-            ppc = c.get("place_probability", min(c["win_probability"] * 2.5, 0.9))
-            p = _trio_prob(ppa, ppb, ppc, field)
-            o = trio_odds_map.get(key, round(max(TAKEOUT["trio"] / max(p, 0.0001) * 1.2, 5.0), 1))
-            ev = p * o
-            kf = kelly_fraction(p, o) * kelly_scale
+        top_n = _top_n_for_risk(risk_level, field)
+        sorted_h = sorted(horses, key=lambda x: x["ai_win_prob"], reverse=True)[:top_n]
+        for a, b, c in combinations(sorted_h, 3):
+            p = _trio_prob(a["ai_place_prob"], b["ai_place_prob"], c["ai_place_prob"], field)
+            oa = actual_odds.get(a["horse_name"], 0)
+            ob = actual_odds.get(b["horse_name"], 0)
+            oc = actual_odds.get(c["horse_name"], 0)
+            if oa <= 0 or ob <= 0 or oc <= 0:
+                odds = _estimate_combo_odds(p, TAKEOUT["trio"])
+            else:
+                odds = _combo_odds_from_singles([oa, ob, oc], "trio")
+            ev = p * odds
+            kf = kelly_fraction(p, odds, kelly_scale)
             all_bets.append({
                 "bet_type": "trio", "bet_type_ja": "三連複",
                 "selection": f"{a['horse_name']} - {b['horse_name']} - {c['horse_name']}",
-                "odds": round(o, 1), "hit_prob": round(p, 4),
-                "expected_value": round(ev, 3), "kelly_fraction": kf,
+                "odds": odds, "hit_prob": round(p, 4),
+                "expected_value": round(ev, 3), "kelly": kf,
             })
 
-    # ── 三連単（A→B→C 着順あり）──
+    # 三連単
     if "trifecta" in bet_types:
-        from itertools import permutations
-        trifecta_odds_map = odds.get("trifecta", {})
-        for combo in combinations(horses[:6], 3):
+        top_n = min(_top_n_for_risk(risk_level, field), 6)
+        sorted_h = sorted(horses, key=lambda x: x["ai_win_prob"], reverse=True)[:top_n]
+        for combo in combinations(sorted_h, 3):
             for a, b, c in permutations(combo):
-                key = f"{a['horse_name']}→{b['horse_name']}→{c['horse_name']}"
-                p1 = a["win_probability"]
-                p2 = b["win_probability"] / (1 - p1) if p1 < 1 else 0
-                p3 = c["win_probability"] / (1 - p1 - b["win_probability"]) if (p1 + b["win_probability"]) < 1 else 0
-                p = p1 * p2 * p3
-                o = trifecta_odds_map.get(key, round(max(TAKEOUT["trifecta"] / max(p, 0.00001) * 1.2, 20.0), 1))
-                ev = p * o
-                kf = kelly_fraction(p, o) * kelly_scale
+                p = _trifecta_prob(a["ai_win_prob"], b["ai_win_prob"], c["ai_win_prob"])
+                oa = actual_odds.get(a["horse_name"], 0)
+                ob = actual_odds.get(b["horse_name"], 0)
+                oc = actual_odds.get(c["horse_name"], 0)
+                if oa <= 0 or ob <= 0 or oc <= 0:
+                    odds = _estimate_combo_odds(p, TAKEOUT["trifecta"])
+                else:
+                    odds = _combo_odds_from_singles([oa, ob, oc], "trifecta")
+                ev = p * odds
+                kf = kelly_fraction(p, odds, kelly_scale)
                 all_bets.append({
                     "bet_type": "trifecta", "bet_type_ja": "三連単",
                     "selection": f"{a['horse_name']} → {b['horse_name']} → {c['horse_name']}",
-                    "odds": round(o, 1), "hit_prob": round(p, 4),
-                    "expected_value": round(ev, 3), "kelly_fraction": kf,
+                    "odds": odds, "hit_prob": round(p, 4),
+                    "expected_value": round(ev, 3), "kelly": kf,
                 })
 
-    # ── リスクレベル別の戦略 ──
-    # low:  的中率高い買い目中心、上位馬のみ、点数少なく厚く
-    # medium: バランス型
-    # high: 高配当狙い、穴馬含む、薄く広く
-    risk_config = {
-        "low": {
-            "horse_range": 3,     # 上位3頭中心
-            "max_bets": 5,        # 点数少なく
-            "prefer_types": ["win", "place", "wide"],
-            "weight_by": "hit_prob",  # 的中率重視
-            "top_heavy": 0.5,     # 本命に厚く（上位に50%集中）
-        },
-        "medium": {
-            "horse_range": 5,
-            "max_bets": 8,
-            "prefer_types": None,  # 全種別均等
-            "weight_by": "expected_value",
-            "top_heavy": 0.3,
-        },
-        "high": {
-            "horse_range": 7,
-            "max_bets": 12,
-            "prefer_types": ["quinella", "trio"],  # 高配当中心
-            "weight_by": "odds",  # 高オッズ重視
-            "top_heavy": 0.1,     # 均等に近い
-        },
-    }
-    rc = risk_config.get(risk_level, risk_config["medium"])
+    # ── バリューのある買い目のみ選出 ──
+    value_bets = [b for b in all_bets if b["expected_value"] > 0.8]
+    value_bets.sort(key=lambda x: x["expected_value"], reverse=True)
 
-    # ── 各種別からリスクに応じて選出 ──
-    selected = []
-    types_requested = list(set(bet_types))
+    # リスク別の点数制限
+    max_bets = {"low": 5, "medium": 10, "high": 15}.get(risk_level, 10)
+    selected = value_bets[:max_bets]
 
-    for bt in types_requested:
-        bt_bets = [b for b in all_bets if b["bet_type"] == bt]
+    # フォールバック: バリュー買い目が少ない場合、期待値順で補完
+    if len(selected) < 3:
+        all_bets.sort(key=lambda x: x["expected_value"], reverse=True)
+        for b in all_bets:
+            key = f"{b['bet_type']}:{b['selection']}"
+            if not any(f"{s['bet_type']}:{s['selection']}" == key for s in selected):
+                selected.append(b)
+            if len(selected) >= 3:
+                break
 
-        # リスクに応じたソート
-        if rc["weight_by"] == "hit_prob":
-            bt_bets.sort(key=lambda x: x["hit_prob"], reverse=True)
-        elif rc["weight_by"] == "odds":
-            bt_bets.sort(key=lambda x: x["odds"], reverse=True)
-        else:
-            bt_bets.sort(key=lambda x: x["expected_value"], reverse=True)
-
-        # 優先種別でなければ少なく
-        if rc["prefer_types"] and bt not in [t for t in rc["prefer_types"] if t in bet_types]:
-            max_n = 1
-        else:
-            max_n = max(2, rc["max_bets"] // len(types_requested))
-
-        selected.extend(bt_bets[:max_n])
-
-    # 重複排除
-    seen = set()
-    unique = []
-    for b in selected:
-        key = f"{b['bet_type']}:{b['selection']}"
-        if key not in seen:
-            seen.add(key)
-            unique.append(b)
-    selected = unique[:rc["max_bets"]]
-
-    # ── 金額配分（リスクに応じた傾斜） ──
-    if not selected:
-        selected = sorted(all_bets, key=lambda x: x["expected_value"], reverse=True)[:4]
-
-    n = len(selected)
-    weights = []
-    for i in range(n):
-        # 上位ほど厚く（top_heavyが大きいほど傾斜が急）
-        w = 1.0 + rc["top_heavy"] * (n - i) / n
-        weights.append(w)
-
-    total_w = sum(weights)
-    for i, b in enumerate(selected):
-        raw = budget * (weights[i] / total_w)
-        b["amount"] = max(int(round(raw / 100) * 100), 100)
-
-    # 予算超過の調整
-    total = sum(b["amount"] for b in selected)
-    if total > budget and selected:
-        scale = budget / total
+    # ── ケリー基準で金額配分 ──
+    if selected:
+        total_kelly = sum(b["kelly"] for b in selected) or 1
         for b in selected:
-            b["amount"] = max(int(round(b["amount"] * scale / 100) * 100), 100)
+            raw = budget * (b["kelly"] / total_kelly)
+            b["amount"] = max(int(round(raw / 100) * 100), 100)
+
+        # 予算調整
+        total = sum(b["amount"] for b in selected)
+        if total > budget:
+            scale = budget / total
+            for b in selected:
+                b["amount"] = max(int(round(b["amount"] * scale / 100) * 100), 100)
+
+    # ── 結果集計 ──
+    for b in selected:
+        b["payout"] = int(b.get("amount", 0) * b.get("odds", 0))
 
     total_amount = sum(b["amount"] for b in selected)
     expected_return = sum(b["amount"] * b["expected_value"] for b in selected)
 
     return {
         "recommendations": selected,
+        "value_analysis": value_analysis,
         "total_budget": total_amount,
         "expected_return": round(expected_return),
         "expected_roi": round(expected_return / max(total_amount, 1), 3),
+        "has_real_odds": any(actual_odds.get(h["horse_name"], 0) > 0 for h in horses),
         "risk_metrics": {
             "worst_case": -total_amount,
-            "best_case": max((int(b["amount"] * b["odds"]) for b in selected), default=0),
+            "best_case": max((b.get("payout", 0) for b in selected), default=0),
+            "value_bet_count": len([b for b in selected if b["expected_value"] > 1.0]),
         },
     }
+
+
+def _top_n_for_risk(risk_level: str, field: int) -> int:
+    """リスク別の検討馬数"""
+    base = {"low": 4, "medium": 6, "high": 8}.get(risk_level, 6)
+    return min(base, field)
