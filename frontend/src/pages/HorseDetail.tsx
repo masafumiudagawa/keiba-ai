@@ -39,7 +39,7 @@ export default function HorseDetail({ horse: h, weights, onBack, weightCategorie
           <div className="flex items-center gap-3">
             {/* Horse Icon (large waku badge) */}
             <div className={`w-16 h-16 rounded-xl flex flex-col items-center justify-center text-lg font-bold
-              ${({1:'bg-white text-slate-800',2:'bg-gray-700',3:'bg-red-500',4:'bg-blue-500',5:'bg-yellow-400 text-gray-900',6:'bg-green-500',7:'bg-orange-400',8:'bg-pink-400'})[h.post_position] || 'bg-slate-400'}`}>
+              ${({1:'bg-white text-slate-800',2:'bg-gray-700',3:'bg-red-500',4:'bg-blue-500',5:'bg-yellow-400 text-gray-900',6:'bg-green-500',7:'bg-orange-400',8:'bg-pink-400'} as Record<number,string>)[h.post_position as number] || 'bg-slate-400'}`}>
               <div className="text-xs opacity-70">{h.post_position}枠</div>
               <div className="text-2xl">{h.gate_number}</div>
             </div>
