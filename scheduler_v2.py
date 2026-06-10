@@ -294,7 +294,15 @@ def update_odds_nar(race: dict):
             return
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        rows = soup.select("tr.OddsTableBody, tr[class*='HorseList']")
+
+        # 単勝テーブルを取得（最初のRaceOdds_HorseList_Table）
+        table = soup.select_one("table.RaceOdds_HorseList_Table")
+        if not table:
+            # フォールバック: 旧セレクタ
+            rows = soup.select("tr.OddsTableBody, tr[class*='HorseList']")
+        else:
+            rows = table.select("tr")[1:]  # ヘッダー行をスキップ
+
         if not rows:
             log.warning("  オッズテーブルが見つかりません")
             return
@@ -302,23 +310,32 @@ def update_odds_nar(race: dict):
         odds_list = []
         for row in rows:
             cols = row.select("td")
-            if len(cols) < 4:
+            if len(cols) < 6:
                 continue
-            horse_link = row.select_one("a[href*='/horse/']")
-            horse_name = horse_link.get_text(strip=True) if horse_link else ""
-            if not horse_name:
+            # 列構成: [枠, 馬番, 印, 選択, 馬名, オッズ]
+            umaban = cols[1].get_text(strip=True)
+            name_td = cols[4]
+            name_link = name_td.select_one("a")
+            horse_name = name_link.get_text(strip=True) if name_link else name_td.get_text(strip=True)
+            odds_text = cols[5].get_text(strip=True).replace(",", "")
+            if not horse_name or not odds_text:
                 continue
             try:
-                odds_val = float(cols[-2].get_text(strip=True).replace(",", ""))
-                pop = int(cols[-1].get_text(strip=True))
-            except (ValueError, IndexError):
+                odds_val = float(odds_text)
+            except ValueError:
                 continue
             odds_list.append({
+                "gate_number": int(umaban) if umaban.isdigit() else 0,
                 "horse_name": horse_name,
                 "win_odds": odds_val,
-                "popularity": pop,
+                "popularity": 0,  # 人気順位は後でソートして付与
                 "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             })
+
+        # 人気順位をオッズ昇順で付与
+        odds_list.sort(key=lambda x: x["win_odds"])
+        for i, item in enumerate(odds_list):
+            item["popularity"] = i + 1
 
         if odds_list:
             df = pd.DataFrame(odds_list)
