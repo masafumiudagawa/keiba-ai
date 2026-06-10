@@ -38,14 +38,14 @@
 <div class="c">
 
 <h1>競馬予想AI 最終設計書 v4.0</h1>
-<p class="sub">汎用マルチレース対応 | 最終更新: 2026-06-10 | 17カテゴリ × 全馬スコアリング</p>
+<p class="sub">汎用マルチレース対応 | 最終更新: 2026-06-10 | 23カテゴリ × 全馬スコアリング</p>
 
 <div class="toc">
   <strong>目次</strong>
   <ol>
     <li><a href="#s1">システム概要</a></li>
     <li><a href="#s2">データソース一覧</a></li>
-    <li><a href="#s3">予測エンジン（17カテゴリ詳細）</a></li>
+    <li><a href="#s3">予測エンジン（23カテゴリ詳細）</a></li>
     <li><a href="#s4">ウェイト調整UI（6プリセット）</a></li>
     <li><a href="#s5">買い目最適化エンジン v3（バリュー比率ベース）</a></li>
     <li><a href="#s6">データ自動更新（scheduler_v2）</a></li>
@@ -59,7 +59,7 @@
 <h2 id="s1">1. システム概要</h2>
 <div class="card">
   <div class="g">
-    <div><strong>予測エンジン</strong><br>ルールベース 17カテゴリスコアリング。各カテゴリにユーザーがウェイト（0.0〜2.0x）を設定し、フロントエンドでリアルタイムに順位・確率を再計算。</div>
+    <div><strong>予測エンジン</strong><br>ルールベース 23カテゴリスコアリング。各カテゴリにユーザーがウェイト（0.0〜2.0x）を設定し、フロントエンドでリアルタイムに順位・確率を再計算。</div>
     <div><strong>買い目最適化</strong><br>バリュー比率ベース（v3）。AI確率と実オッズ（市場評価）を比較し、AIが市場より高く評価している馬・組み合わせのみを推奨。</div>
     <div><strong>技術スタック</strong><br>Backend: FastAPI (Python 3.13) | Frontend: React 19 + TypeScript 6 + Tailwind 4 + Vite 8 | Deploy: Render</div>
   </div>
@@ -261,7 +261,7 @@ python scheduler_v2.py loop 15         # 15分間隔で自動更新</div>
 ├── backend/
 │   ├── main.py              # FastAPI + SPA配信
 │   ├── api/
-│   │   ├── races.py         # レースCRUD + 17カテゴリ特徴量API + 馬画像API
+│   │   ├── races.py         # レースCRUD + 23カテゴリ特徴量API + 馬画像API
 │   │   ├── betting.py       # 買い目最適化API（バリューベース v3）
 │   │   ├── predictions.py   # 旧予測API
 │   │   ├── simulation.py    # レースシミュレーション
@@ -271,7 +271,7 @@ python scheduler_v2.py loop 15         # 15分間隔で自動更新</div>
 ├── frontend/src/
 │   ├── App.tsx              # レース切替 + タブ
 │   └── pages/
-│       ├── PredictionTable.tsx  # 出馬表 + ウェイト調整（17カテゴリ×6プリセット）
+│       ├── PredictionTable.tsx  # 出馬表 + ウェイト調整（23カテゴリ×6プリセット）
 │       ├── HorseDetail.tsx      # 馬詳細（画像ギャラリー付き）
 │       ├── BettingOptimizer.tsx  # 買い目最適化（バリュー分析）
 │       └── RaceSimulation.tsx   # シミュレーション
@@ -291,7 +291,7 @@ python scheduler_v2.py loop 15         # 15分間隔で自動更新</div>
   <tr><td>距離適性</td><td>0固定</td><td>過去走±400m好走率から計算</td></tr>
   <tr><td>通算勝率</td><td>消滅</td><td><span class="tag tg">復活</span></td></tr>
   <tr><td>コース経験</td><td>宝塚限定→消滅</td><td><span class="tag tg">汎用化して復活</span></td></tr>
-  <tr><td>世論</td><td>YT×2+News×2（max180）</td><td>YT×0.5+News×0.5（max20に制限）</td></tr>
+  <tr><td>世論</td><td>YT×2+News×2（max180）</td><td>YT×0.5(max12) + News×0.6(max12)。差別化を確保しつつ抑制</td></tr>
   <tr><td>血統</td><td>距離×30+場×20</td><td>距離×10+場×8+重馬場×5</td></tr>
   <tr><td>対戦成績</td><td>常に0（バグ）</td><td>wins/totalから計算</td></tr>
   <tr><td>買い目最適化</td><td>Kelly基準+推定オッズ</td><td>バリュー比率ベース</td></tr>
@@ -303,7 +303,7 @@ python scheduler_v2.py loop 15         # 15分間隔で自動更新</div>
 
 </div>
 <footer>
-  競馬予想AI 最終設計書 v4.0 | 2026-06-10 | 17カテゴリ × 汎用マルチレース対応
+  競馬予想AI 最終設計書 v4.0 | 2026-06-10 | 23カテゴリ × 汎用マルチレース対応
 </footer>
 </body>
 </html>

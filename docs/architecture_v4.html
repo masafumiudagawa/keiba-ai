@@ -35,7 +35,7 @@
 <li>距離適性スコア: 0固定 → <strong>過去走の距離別好走率から計算</strong></li>
 <li>馬画像API: netkeibaから最大8枚の写真をプロキシ取得</li>
 <li>JRA中央競馬オッズ: scheduler_v2にJRAオッズ取得機能を追加</li>
-<li>ウェイトカテゴリ: 14 → <strong>15カテゴリ</strong>（距離適性追加）、プリセット5種</li>
+<li>ウェイトカテゴリ: 14 → <strong>23カテゴリ</strong>（距離適性・通算勝率・コース経験追加）、プリセット6種、4Tier配点設計</li>
 <li>netkeiba_id自動取得: 出馬表から全馬のIDを自動収集</li>
 </ul>
 </div>
@@ -111,7 +111,8 @@ keiba_ai/
 <tr><td>8</td><td>上がり3F</td><td>last_3f</td><td>(37-best_last3f)*5（32〜37秒でクリップ）</td><td>0-25</td></tr>
 <tr><td>9</td><td>能力値</td><td>speed_figure</td><td>(speed_figure-90)*1.5</td><td>0-40</td></tr>
 <tr><td>10</td><td>血統適性</td><td>pedigree</td><td>父の距離勝率*10 + 父の競馬場勝率*8 + 父の重馬場勝率*5</td><td>0-15</td></tr>
-<tr><td>11</td><td>世論</td><td>public_opinion</td><td>min(YouTube*0.5 + ニュース*0.5, 20)</td><td>0-20</td></tr>
+<tr><td>20</td><td>ニュース世論</td><td>news</td><td>min(ニューススコア × 0.6, 12)</td><td>0-12</td></tr>
+<tr><td>21</td><td>YouTube世論</td><td>youtube</td><td>min(YouTubeスコア × 0.5, 12)</td><td>0-12</td></tr>
 <tr><td>12</td><td>調教</td><td>training</td><td>(調教強度-3)*5（1-5段階）</td><td>-10〜10</td></tr>
 <tr><td>13</td><td>脚質</td><td>running_style</td><td>config.trends.style_bias[脚質]（逃げ=8, 先行=5, 差し=2, 追込=0）</td><td>0-8</td></tr>
 <tr><td>14</td><td>対戦成績</td><td>head_to_head</td><td>(対戦勝数/対戦総数)*15</td><td>0-15</td></tr>
@@ -227,7 +228,7 @@ python scheduler_v2.py loop 15         # 15分間隔で自動更新
 <tr><td>GET</td><td>/api/races</td><td>レース一覧</td></tr>
 <tr><td>POST</td><td>/api/races</td><td>レース追加</td></tr>
 <tr><td>DELETE</td><td>/api/races/{race_id}</td><td>レース削除</td></tr>
-<tr><td>GET</td><td>/api/races/{race_id}/features</td><td>全馬の特徴量（15カテゴリスコア + 生データ）</td></tr>
+<tr><td>GET</td><td>/api/races/{race_id}/features</td><td>全馬の特徴量（23カテゴリスコア + 生データ + 17UIグループ）</td></tr>
 <tr><td>GET</td><td>/api/races/{race_id}/config</td><td>レース設定</td></tr>
 <tr><td>PUT</td><td>/api/races/{race_id}/config</td><td>レース設定更新</td></tr>
 <tr><td>POST</td><td>/api/betting/optimize</td><td>バリューベース買い目最適化</td></tr>
@@ -243,7 +244,7 @@ python scheduler_v2.py loop 15         # 15分間隔で自動更新
 <h2>7. フロントエンド画面構成</h2>
 <table>
 <tr><th>画面</th><th>コンポーネント</th><th>機能</th></tr>
-<tr><td>出馬表</td><td>PredictionTable.tsx</td><td>全馬カード表示、ウェイト調整（15カテゴリ×5プリセット）、スコア展開、馬詳細遷移</td></tr>
+<tr><td>出馬表</td><td>PredictionTable.tsx</td><td>全馬カード表示、ウェイト調整（23スコア×17UIグループ×6プリセット）、スコア展開、馬詳細遷移</td></tr>
 <tr><td>馬詳細</td><td>HorseDetail.tsx</td><td>プロフィール、競走成績、血統、AI分析、画像ギャラリー（最大8枚）</td></tr>
 <tr><td>シミュレーション</td><td>RaceSimulation.tsx</td><td>レース展開シミュレーション</td></tr>
 <tr><td>買い目最適化</td><td>BettingOptimizer.tsx</td><td>バリュー分析、AI最適化、3パターン比較、軸馬流し、フォーメーション、ボックス</td></tr>
