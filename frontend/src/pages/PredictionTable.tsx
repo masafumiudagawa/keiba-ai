@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import HorseDetail from './HorseDetail'
 
 const MARK_COLORS: Record<string, string> = { '◎': 'text-red-600', '○': 'text-blue-600', '▲': 'text-amber-600', '△': 'text-slate-500' }
 const WAKU_BG: Record<number, string> = { 1: 'bg-white border border-slate-300 text-slate-800', 2: 'bg-gray-900 text-white', 3: 'bg-red-600 text-white', 4: 'bg-blue-600 text-white', 5: 'bg-yellow-400 text-gray-900', 6: 'bg-green-600 text-white', 7: 'bg-orange-500 text-white', 8: 'bg-pink-500 text-white' }
@@ -31,6 +32,7 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
   const [weights, setWeights] = useState<Record<string, number>>(PRESETS.standard)
   const [showWeights, setShowWeights] = useState(false)
   const [expanded, setExpanded] = useState<string|null>(null)
+  const [selectedHorse, setSelectedHorse] = useState<string|null>(null)
 
   useEffect(() => { setLoading(true); fetch(`/api/races/${raceId}/features`).then(r=>r.json()).then(d=>{setFeatures(d.features||[]);setConfig(d.config||{});setWeather(d.weather||null)}).catch(()=>{}).finally(()=>setLoading(false)) }, [raceId])
 
@@ -48,8 +50,15 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
   if(loading) return <div className="text-center py-20 text-slate-400">読み込み中...</div>
   if(!features.length) return <div className="text-center py-20 text-slate-400">出走馬データがありません</div>
 
+  // 馬詳細画面
+  if (selectedHorse) {
+    const horse = ranked.find(h => h.horse_name === selectedHorse)
+    if (horse) {
+      return <HorseDetail horse={horse} weights={weights} onBack={() => setSelectedHorse(null)} weightCategories={WEIGHT_CATEGORIES} />
+    }
+  }
+
   const tc:Record<string,string>={'良':'text-emerald-600','稍重':'text-amber-600','重':'text-orange-600','不良':'text-red-600'}
-  const nkLink = (id:string) => id ? `https://db.netkeiba.com/horse/${id}/` : ''
 
   return (
     <div>
@@ -101,13 +110,13 @@ export default function PredictionTable({ raceId }: { raceId: string }) {
               <div className="flex-1 min-w-0 py-1.5 pr-2">
                 {/* Line 1: 馬名 + 属性 */}
                 <div className="flex items-baseline gap-1 flex-wrap">
-                  <span className={`font-bold text-sm ${h.rank===1?'text-red-600':h.rank<=3?'text-blue-700':''}`}>{h.horse_name}</span>
+                  <button onClick={e=>{e.stopPropagation();setSelectedHorse(h.horse_name)}}
+                    className={`font-bold text-sm hover:underline ${h.rank===1?'text-red-600':h.rank<=3?'text-blue-700':'text-slate-800'}`}>{h.horse_name}</button>
                   <span className="text-[10px] text-slate-400">{h.sex}{h.age}</span>
                   {h.coat_color&&h.coat_color!=='nan'&&<span className="text-[10px] text-slate-400">{h.coat_color}</span>}
                   <span className="text-[10px] bg-slate-100 text-slate-500 px-1 rounded">{h.running_style_label}</span>
-                  {h.netkeiba_id&&h.netkeiba_id!=='nan'&&h.netkeiba_id!==''&&
-                    <a href={nkLink(h.netkeiba_id)} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
-                      className="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">netkeiba↗</a>}
+                  <button onClick={e=>{e.stopPropagation();setSelectedHorse(h.horse_name)}}
+                    className="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">詳細→</button>
                 </div>
                 {/* Line 2: 騎手 + 血統 */}
                 <div className="text-[10px] text-slate-500 leading-snug mt-0.5">
