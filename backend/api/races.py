@@ -183,10 +183,18 @@ def get_features(race_id: str):
         last1 = float(fp.iloc[0]) if len(fp) > 0 else 18
         last2 = float(fp.iloc[1]) if len(fp) > 1 else 18
 
-        # 通算勝率
-        career_win_rate = career_wins / max(career_runs, 1)
+        # 改善1: 前走のグレード補正係数
+        grade_mult = {"G1": 1.3, "G2": 1.1, "G3": 1.0, "JpnI": 1.25, "JpnII": 1.05, "JpnIII": 0.95}
+        last1_grade = str(h.iloc[0].get("grade", "")) if not h.empty and "grade" in h.columns else ""
+        last2_grade = str(h.iloc[1].get("grade", "")) if len(h) > 1 and "grade" in h.columns else ""
+        last1_gmult = grade_mult.get(last1_grade, 0.85)
+        last2_gmult = grade_mult.get(last2_grade, 0.85)
 
-        # コース経験: 今回と同じ競馬場での過去走
+        # 改善3: 勝率の信頼度（キャリア数で補正）
+        career_win_rate = career_wins / max(career_runs, 1)
+        career_confidence = min(career_runs / 10, 1.0)
+
+        # 改善2: コース経験（max 7に抑制）
         race_venue = config.get("venue", "")
         venue_exp = 0.0
         if not h.empty and "venue" in h.columns and race_venue:
@@ -195,7 +203,17 @@ def get_features(race_id: str):
                 v_fp = pd.to_numeric(venue_runs["finish_position"], errors="coerce").dropna()
                 if len(v_fp) > 0:
                     v_wr = float((v_fp <= 3).sum()) / len(v_fp)
-                    venue_exp = v_wr * 10 + min(len(v_fp), 5) * 1.5
+                    venue_exp = v_wr * 7 + min(len(v_fp), 4) * 1.0
+
+        # 改善4: 中央/地方の交流戦補正
+        is_exchange = config.get("race_type", "") == "exchange"
+        # JRA所属馬かどうかの判定（entries.csvにtrainer_nameがあればJRA系と推定）
+        is_jra_horse = False
+        if is_exchange and not h.empty and "venue" in h.columns:
+            jra_venues = {"東京","中山","阪神","京都","中京","小倉","新潟","札幌","函館","福島"}
+            horse_venues = set(h["venue"].dropna().unique())
+            is_jra_horse = len(horse_venues & jra_venues) > len(horse_venues) * 0.5
+        exchange_bonus = 8 if is_exchange and is_jra_horse else 0
 
         # 拡張データ
         ext = extended[extended["horse_name"] == name].iloc[0].to_dict() if not extended.empty and name in extended["horse_name"].values else {}
@@ -306,8 +324,8 @@ def get_features(race_id: str):
             "recent_5": recent_5,
             "scores": {
                 # ── Tier1: 最重要（max 25-32） ──
-                # 1. 前走着順: 直近成績が最も予測に寄与（ML研究で一貫して上位）
-                "last_finish": (18 - min(max(last1, 1), 18)) * 1.5,                      # max 25.5
+                # 1. 前走着順: グレード補正あり（G1の7着 > G3の1着）
+                "last_finish": (18 - min(max(last1, 1), 18)) * 1.5 * last1_gmult,         # max 33(G1) / 25.5(G3)
                 # 2. スピード指数: 能力の絶対値。重馬場ではタイムが出にくいため減衰
                 "speed_figure": float((speed - 90) * (0.8 if is_heavy else 1.0 if is_yielding else 1.2)) if speed > 0 else 0,  # max 30(良), 25(稍), 20(重)
                 # 3. 上がり3F: 中距離G1で決定的。重馬場ではタイム差が出にくいため減衰
@@ -324,22 +342,22 @@ def get_features(race_id: str):
                 "jockey_g1": float(np.log1p(j_g1) * 4.5),                                 # max 20
                 # 8. G1複勝: 安定感の指標。G1勝利(max25)を超えない設計
                 "g1_places": min(float(g1_place * 3), 18),                                 # max 18
-                # 9. 通算勝率: 安定した予測因子
-                "career_win_rate": round(career_win_rate * 15, 1),                         # max 15
+                # 9. 通算勝率: キャリア数で信頼度補正（浅いキャリアは割引）
+                "career_win_rate": round(career_win_rate * 15 * career_confidence, 1),     # max 15
                 # 10. 騎手シーズン勝率: 現在の好調さを反映
                 "jockey_win_rate": min(float(j_wr * 50), 15),                              # max 15
                 # 11. 調教: 追い切り速い馬は遅い馬の3-10倍の勝率
                 "training": (train_val - 3) * 6.5,                                         # max 13
-                # 12. 2走前着順: 安定感の指標（前走より減衰）
-                "second_last_finish": (18 - min(max(last2, 1), 18)) * 0.7,                 # max 11.9
+                # 12. 2走前着順: グレード補正あり（前走より減衰）
+                "second_last_finish": (18 - min(max(last2, 1), 18)) * 0.7 * last2_gmult,   # max 15.5(G1) / 11.9(G3)
 
                 # ── Tier3: 中程度（max 5-12） ──
                 # 13. 対戦成績: 直接対決の相性（サンプル少のため抑制）
                 "head_to_head": min(h2h_wr * 12, 12) if h2h_total > 0 else 0,             # max 12
                 # 14. 厩舎力: トレーナーは予測に有意（学術研究）
                 "trainer_score": float(np.log1p(int(ext.get("trainer_g1_wins", 0) or 0)) * 4.2),  # max 11
-                # 15. コース経験: 同競馬場の好走率+出走経験
-                "venue_experience": min(round(venue_exp * 0.8, 1), 10),                    # max 10
+                # 15. コース経験: 同競馬場の好走率+出走経験（max 7に抑制）
+                "venue_experience": min(round(venue_exp, 1), 7),                           # max 7
                 # 16. 脚質: 展開依存。config.jsonで設定
                 "running_style": float(style_bias.get(style_name, 0)) * 1.2,               # max 9.6
                 # 17. 休養: 近年の休養明け好走率向上を反映
@@ -361,6 +379,8 @@ def get_features(race_id: str):
                     float(ext.get("sire_heavy_winrate", 0) or 0) * (40 if is_heavy else 25 if is_yielding else 10),
                     12 if is_heavy else 8 if is_yielding else 5
                 ),  # max 12(重)/8(稍)/5(良)
+                # 24. 交流戦JRA補正: 中央馬は地方馬より基礎能力が高い傾向
+                "exchange_bonus": float(exchange_bonus),                                    # 交流戦JRA馬:8 / それ以外:0
             },
             "raw": {
                 "g1_wins": g1_wins,
