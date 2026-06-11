@@ -3,6 +3,8 @@ KEIBA AI - FastAPI サーバー
 """
 import sys
 import os
+import threading
+import time
 
 # プロジェクトルートをパスに追加
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -11,6 +13,31 @@ sys.path.insert(0, ROOT)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+
+
+def _keep_alive_worker():
+    """Renderのスリープ防止: 10分ごとに自分自身にリクエスト"""
+    import urllib.request
+    url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not url:
+        return  # ローカル環境では動かさない
+    health_url = f"{url}/api/health"
+    while True:
+        time.sleep(600)  # 10分
+        try:
+            urllib.request.urlopen(health_url, timeout=10)
+        except Exception:
+            pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup: keep-aliveスレッド起動
+    t = threading.Thread(target=_keep_alive_worker, daemon=True)
+    t.start()
+    yield
+    # shutdown
 
 from backend.api.predictions import router as predictions_router
 from backend.api.simulation import router as simulation_router
@@ -18,7 +45,7 @@ from backend.api.betting import router as betting_router
 from backend.api.data_status import router as status_router
 from backend.api.races import router as races_router
 
-app = FastAPI(title="KEIBA AI", version="1.0.0")
+app = FastAPI(title="KEIBA AI", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

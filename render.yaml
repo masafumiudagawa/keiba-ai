@@ -9,4 +9,6 @@ services:
         value: "3.12"
       - key: NODE_VERSION
         value: "20"
+      - key: RENDER_EXTERNAL_URL
+        value: "https://keiba-ai-0tll.onrender.com"
     plan: free
