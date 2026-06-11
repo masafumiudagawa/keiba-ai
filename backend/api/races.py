@@ -163,6 +163,9 @@ def get_features(race_id: str):
     is_heavy = track_condition in ("重", "不良")
     is_yielding = track_condition == "稍重"
 
+    # 枠番バイアス（config.jsonから取得）
+    gate_bias = trends.get("gate_bias", {})
+
     horses = []
     if entries.empty:
         return {"features": [], "config": config}
@@ -381,6 +384,8 @@ def get_features(race_id: str):
                 ),  # max 12(重)/8(稍)/5(良)
                 # 24. 交流戦JRA補正: 中央馬は地方馬より基礎能力が高い傾向
                 "exchange_bonus": float(exchange_bonus),                                    # 交流戦JRA馬:8 / それ以外:0
+                # 25. 枠番バイアス: コース・レース特性による枠の有利不利（config.json設定）
+                "gate_bias": float(gate_bias.get(str(post_pos), 0)),                       # 宝塚: 3枠+3, 8枠+4, 4枠-4, 6枠-4
             },
             "raw": {
                 "g1_wins": g1_wins,

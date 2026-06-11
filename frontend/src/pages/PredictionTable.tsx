@@ -24,6 +24,7 @@ const WEIGHT_GROUPS = [
   { key: 'rest', label: '休養', scores: ['rest'] },
   { key: 'trainer', label: '厩舎', scores: ['trainer_score'] },
   { key: 'weight', label: '体重', scores: ['weight_trend'] },
+  { key: 'gate', label: '枠番', scores: ['gate_bias', 'exchange_bonus'] },
 ]
 // scoreキー → グループキーの逆引きマップ
 const SCORE_TO_GROUP: Record<string, string> = {}
@@ -34,11 +35,11 @@ const WEIGHT_CATEGORIES = WEIGHT_GROUPS.map(g => ({ key: g.key, label: g.label }
 
 const PRESETS: Record<string, Record<string, number>> = {
   standard: Object.fromEntries(WEIGHT_GROUPS.map(g => [g.key, 1.0])),
-  data: { age:1,recent:1.3,g1:1.3,winrate:1.2,distance:1.2,venue:1,jockey:1,last3f:1.5,speed:1.5,pedigree:1,opinion:0.3,training:0.8,style:1,h2h:1.2,rest:1,trainer:0.8,weight:1 },
-  upset: { age:0.5,recent:0.5,g1:0.3,winrate:0.5,distance:1,venue:1.5,jockey:0.5,last3f:2,speed:1.5,pedigree:1.2,opinion:0.2,training:1.5,style:1.5,h2h:0.5,rest:1.2,trainer:0.5,weight:1 },
-  pedigree: { age:0.8,recent:0.8,g1:1,winrate:0.8,distance:1.3,venue:1,jockey:0.8,last3f:1,speed:1,pedigree:2,opinion:0.3,training:0.8,style:1,h2h:0.8,rest:1,trainer:1,weight:1 },
-  jockey: { age:1,recent:1,g1:1,winrate:1,distance:1,venue:1.2,jockey:2,last3f:1,speed:1,pedigree:0.8,opinion:0.5,training:1.2,style:1,h2h:1,rest:1,trainer:1.2,weight:1 },
-  course: { age:0.8,recent:1,g1:0.8,winrate:1,distance:1.8,venue:2,jockey:1,last3f:1.2,speed:1,pedigree:1.3,opinion:0.3,training:1,style:1.2,h2h:1,rest:1,trainer:1,weight:1 },
+  data: { age:1,recent:1.3,g1:1.3,winrate:1.2,distance:1.2,venue:1,jockey:1,last3f:1.5,speed:1.5,pedigree:1,opinion:0.3,training:0.8,style:1,h2h:1.2,rest:1,trainer:0.8,weight:1,gate:1 },
+  upset: { age:0.5,recent:0.5,g1:0.3,winrate:0.5,distance:1,venue:1.5,jockey:0.5,last3f:2,speed:1.5,pedigree:1.2,opinion:0.2,training:1.5,style:1.5,h2h:0.5,rest:1.2,trainer:0.5,weight:1,gate:1.5 },
+  pedigree: { age:0.8,recent:0.8,g1:1,winrate:0.8,distance:1.3,venue:1,jockey:0.8,last3f:1,speed:1,pedigree:2,opinion:0.3,training:0.8,style:1,h2h:0.8,rest:1,trainer:1,weight:1,gate:1 },
+  jockey: { age:1,recent:1,g1:1,winrate:1,distance:1,venue:1.2,jockey:2,last3f:1,speed:1,pedigree:0.8,opinion:0.5,training:1.2,style:1,h2h:1,rest:1,trainer:1.2,weight:1,gate:1 },
+  course: { age:0.8,recent:1,g1:0.8,winrate:1,distance:1.8,venue:2,jockey:1,last3f:1.2,speed:1,pedigree:1.3,opinion:0.3,training:1,style:1.2,h2h:1,rest:1,trainer:1,weight:1,gate:1.5 },
 }
 
 interface Recent { date:string;venue:string;race:string;dist:number;finish:number|string;grade:string;time:string;last3f:string;passing:string }
