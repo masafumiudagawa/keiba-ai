@@ -109,6 +109,72 @@ def update_weather(race: dict):
         log.error(f"  天気更新エラー: {e}")
 
 
+def _generate_estimated_odds(race: dict):
+    """予想印データ（news/youtube）から予想オッズを推定し、odds.csvに保存。
+    JRA正式オッズが取得できるまでのフォールバック。"""
+    race_id = race.get("id", "")
+    race_dir = os.path.join(RACES_DIR, race_id)
+
+    # 既にodds.csvがあり、推定ではない正式オッズがある場合はスキップ
+    odds_path = os.path.join(race_dir, "odds.csv")
+    if os.path.exists(odds_path):
+        existing = pd.read_csv(odds_path, encoding="utf-8-sig")
+        if not existing.empty and "estimated" not in existing.columns:
+            return  # 正式オッズがあるのでスキップ
+
+    # news.csv + youtube.csv から支持度スコアを算出
+    news_path = os.path.join(race_dir, "news.csv")
+    yt_path = os.path.join(race_dir, "youtube.csv")
+    entries_path = os.path.join(race_dir, "entries.csv")
+
+    if not os.path.exists(entries_path):
+        return
+
+    entries = pd.read_csv(entries_path, encoding="utf-8-sig").dropna(subset=["horse_name"])
+    news = pd.read_csv(news_path, encoding="utf-8-sig") if os.path.exists(news_path) else pd.DataFrame()
+    yt = pd.read_csv(yt_path, encoding="utf-8-sig") if os.path.exists(yt_path) else pd.DataFrame()
+
+    odds_list = []
+    for _, e in entries.iterrows():
+        name = str(e.get("horse_name", "")).strip()
+        gate = int(e.get("gate_number", 0) or 0)
+
+        # 支持度 = 本命数*5 + 対抗数*3 + 言及率*10
+        support = 1.0  # ベース
+        if not news.empty and name in news["horse_name"].values:
+            nr = news[news["horse_name"] == name].iloc[0]
+            support += float(nr.get("honmei_count", 0) or 0) * 5
+            support += float(nr.get("taikou_count", 0) or 0) * 3
+            support += float(nr.get("mention_rate", 0) or 0) * 10
+        if not yt.empty and name in yt["horse_name"].values:
+            yr = yt[yt["horse_name"] == name].iloc[0]
+            support += float(yr.get("honmei_count", 0) or 0) * 4
+            support += float(yr.get("taikou_count", 0) or 0) * 2
+
+        odds_list.append({"gate_number": gate, "horse_name": name, "support": support})
+
+    if not odds_list:
+        return
+
+    # 支持度 → 推定オッズに変換（支持度高い = オッズ低い）
+    total_support = sum(o["support"] for o in odds_list)
+    for o in odds_list:
+        prob = o["support"] / total_support
+        o["win_odds"] = round(max(0.8 / max(prob, 0.01), 1.1), 1)
+        del o["support"]
+
+    # 人気順をオッズ昇順で付与
+    odds_list.sort(key=lambda x: x["win_odds"])
+    for i, o in enumerate(odds_list):
+        o["popularity"] = i + 1
+        o["fetched_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        o["estimated"] = True  # 推定オッズであることを記録
+
+    df = pd.DataFrame(odds_list)
+    df.to_csv(odds_path, index=False, encoding="utf-8-sig")
+    log.info(f"  予想オッズ生成: {len(odds_list)}馬（news/youtube印ベース）")
+
+
 NAR_VENUE_CODE = {"大井": "44", "船橋": "43", "園田": "51", "水沢": "35"}
 JRA_VENUE_CODE = {
     "札幌": "01", "函館": "02", "福島": "03", "新潟": "04", "東京": "05",
@@ -187,7 +253,8 @@ def update_odds_jra(race: dict):
 
         odds_raw = data.get("data")
         if not odds_raw or not isinstance(odds_raw, dict):
-            log.info(f"  JRAオッズ: データなし (status={data.get('status')}, 発売前？)")
+            # フォールバック: 予想印データから予想オッズを生成
+            _generate_estimated_odds(race)
             return
 
         odds_data = odds_raw.get("odds", {}).get("1", {})
