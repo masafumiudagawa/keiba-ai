@@ -31,11 +31,36 @@ def _keep_alive_worker():
             pass
 
 
+def _odds_update_worker():
+    """5分ごとにオッズ・天気を自動更新（Render上で直接実行）"""
+    # 起動直後は少し待つ
+    time.sleep(30)
+    while True:
+        try:
+            from scheduler_v2 import get_all_races, update_odds, update_weather
+            from datetime import datetime
+            today = datetime.now().date()
+            for race in get_all_races():
+                race_date_str = race.get("date", "")
+                try:
+                    if race_date_str and datetime.strptime(race_date_str, "%Y-%m-%d").date() < today:
+                        continue
+                except ValueError:
+                    pass
+                update_odds(race)
+        except Exception:
+            pass
+        time.sleep(300)  # 5分
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup: keep-aliveスレッド起動
     t = threading.Thread(target=_keep_alive_worker, daemon=True)
     t.start()
+    # startup: オッズ自動更新スレッド起動
+    u = threading.Thread(target=_odds_update_worker, daemon=True)
+    u.start()
     yield
     # shutdown
 
