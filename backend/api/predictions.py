@@ -101,13 +101,13 @@ def get_predictions():
     predictions, condition = _build_predictions()
     return {
         "race_info": {
-            "name": "宝塚記念",
-            "date": "2026-06-14",
-            "venue": "阪神",
-            "distance": 2200,
-            "surface": "芝",
-            "grade": "G1",
-            "post_time": "15:40",
+            "name": "遠賀川賞",
+            "date": "2026-07-11",
+            "venue": "佐賀",
+            "distance": 1400,
+            "surface": "ダート",
+            "grade": "A1",
+            "post_time": "17:00",
             "track_condition": condition,
             "field_size": len(predictions),
         },
