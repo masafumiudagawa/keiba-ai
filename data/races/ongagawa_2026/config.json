@@ -1,0 +1,37 @@
+{
+  "id": "ongagawa_2026",
+  "name": "遠賀川賞",
+  "date": "2026-07-11",
+  "venue": "佐賀",
+  "distance": 1400,
+  "surface": "ダート",
+  "grade": "A1",
+  "course_type": "右",
+  "post_time": "17:00",
+  "trends": {
+    "age_bias": {
+      "4": 10,
+      "5": 15,
+      "6": 12,
+      "7": 8,
+      "8": 5,
+      "9": 3
+    },
+    "style_bias": {
+      "nige": 12,
+      "senko": 8,
+      "sashi": 3,
+      "oikomi": 1
+    },
+    "gate_bias": {
+      "1": 1, "2": 2, "3": 2, "4": 1, "5": 0, "6": -1, "7": -1, "8": -2
+    },
+    "pace_tendency": "front_advantage",
+    "key_factors": [
+      "last_finish",
+      "distance_aptitude",
+      "jockey_win_rate"
+    ]
+  },
+  "netkeiba_race_id": "202655071103"
+}
