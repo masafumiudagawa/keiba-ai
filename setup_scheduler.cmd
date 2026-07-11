@@ -11,13 +11,13 @@ if not exist logs mkdir logs
 
 schtasks /Delete /TN "KEIBA_AI_OddsUpdate" /F >nul 2>&1
 
-schtasks /Create /TN "KEIBA_AI_OddsUpdate" /TR "\"%~dp0update_odds.cmd\"" /SC MINUTE /MO 10 /F
+schtasks /Create /TN "KEIBA_AI_OddsUpdate" /TR "\"%~dp0update_odds.cmd\"" /SC MINUTE /MO 5 /F
 
 if %errorlevel%==0 (
     echo.
     echo [OK] タスクスケジューラに登録しました
     echo   タスク名: KEIBA_AI_OddsUpdate
-    echo   間隔:     10分ごと
+    echo   間隔:     5分ごと
     echo   ログ:     logs\odds_update.log
     echo.
 ) else (
