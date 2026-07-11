@@ -42,6 +42,16 @@ VENUE_COORDS = {
     "船橋": (35.6950, 139.9830),
     "園田": (34.7570, 135.4250),
     "水沢": (39.0800, 141.1500),
+    "佐賀": (33.2574, 130.3032),
+    "荒尾": (32.9800, 130.4300),
+    "金沢": (36.5600, 136.6300),
+    "笠松": (35.3700, 136.7800),
+    "名古屋": (35.1700, 137.0400),
+    "高知": (33.5600, 133.5500),
+    "川崎": (35.5300, 139.7000),
+    "浦和": (35.8700, 139.6600),
+    "盛岡": (39.7000, 141.1500),
+    "門別": (42.4500, 142.0000),
 }
 
 
@@ -175,7 +185,7 @@ def _generate_estimated_odds(race: dict):
     log.info(f"  予想オッズ生成: {len(odds_list)}馬（news/youtube印ベース）")
 
 
-NAR_VENUE_CODE = {"大井": "44", "船橋": "43", "園田": "51", "水沢": "35"}
+NAR_VENUE_CODE = {"大井": "44", "船橋": "43", "園田": "51", "水沢": "35", "佐賀": "55", "荒尾": "54", "金沢": "32", "笠松": "41", "名古屋": "42", "姫路": "50", "高知": "63", "川崎": "45", "浦和": "46", "盛岡": "27", "水沢": "28", "門別": "22"}
 JRA_VENUE_CODE = {
     "札幌": "01", "函館": "02", "福島": "03", "新潟": "04", "東京": "05",
     "中山": "06", "中京": "07", "京都": "08", "阪神": "09", "小倉": "10",
@@ -350,7 +360,10 @@ def update_odds_nar(race: dict):
     if not venue_code:
         return
 
-    netkeiba_race_id = f"{race_date[:4]}{venue_code}{race_date[4:]}11"
+    # config.jsonにnetkeiba_race_idが設定済みならそれを優先（レース番号が11以外の場合に必要）
+    netkeiba_race_id = race.get("netkeiba_race_id", "")
+    if not netkeiba_race_id:
+        netkeiba_race_id = f"{race_date[:4]}{venue_code}{race_date[4:]}11"
     url = f"https://nar.netkeiba.com/odds/index.html?race_id={netkeiba_race_id}&type=b1"
 
     try:
